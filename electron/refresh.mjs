@@ -1,0 +1,15 @@
+import {mkdir,readFile,writeFile,rename,rm} from 'node:fs/promises';
+import path from 'node:path';
+import {fetchDirectory,semanticFingerprint} from './directory.mjs';
+export class SnapshotUpdater{
+ constructor({userData,bundledData,buildSemantics,fetcher,send=()=>{}}){Object.assign(this,{userData,bundledData,buildSemantics,fetcher,send});this.activeData=bundledData;this.status={state:'idle',message:'Ready to update'};}
+ async initialize(){try{const name=(await readFile(path.join(this.userData,'current-snapshot'),'utf8')).trim();if(!/^snapshot-[a-z0-9-]+$/.test(name))return;const directory=path.join(this.userData,name);const [data,semantic]=await Promise.all(['companies','semantic'].map(file=>readFile(path.join(directory,file+'.json'),'utf8').then(JSON.parse)));if(data.meta.semanticSourceHash===semantic.meta.sourceHash&&data.companies.length===semantic.meta.companyCount)this.activeData=directory;}catch{}}
+ report(state,message,extra={}){this.status={state,message,...extra};this.send({type:'snapshot-status',...this.status});}
+ async refresh(){if(this.status.state==='running')return this.status;this.report('running','Connecting to YC');const staging=path.join(this.userData,`snapshot-${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
+ try{const previous=JSON.parse(await readFile(path.join(this.activeData,'companies.json'),'utf8'));const {snapshot,changes}=await fetchDirectory(previous,{fetcher:this.fetcher,progress:message=>this.report('running',message)});await mkdir(staging,{recursive:true});await writeFile(path.join(staging,'companies.json'),JSON.stringify(snapshot));const oldSemantic=JSON.parse(await readFile(path.join(this.activeData,'semantic.json'),'utf8'));
+ if(semanticFingerprint(snapshot.companies)===oldSemantic.meta.sourceHash){snapshot.meta.semanticSourceHash=oldSemantic.meta.sourceHash;await writeFile(path.join(staging,'companies.json'),JSON.stringify(snapshot));await writeFile(path.join(staging,'semantic.json'),JSON.stringify(oldSemantic));}
+ else{this.report('running','Rebuilding description maps. You can continue browsing.');await this.buildSemantics(staging,message=>this.report('running',message));}
+ const [fresh,maps]=await Promise.all(['companies','semantic'].map(name=>readFile(path.join(staging,name+'.json'),'utf8').then(JSON.parse)));const hash=semanticFingerprint(fresh.companies);if(fresh.meta.semanticSourceHash!==hash||maps.meta.sourceHash!==hash||maps.meta.companyCount!==fresh.companies.length)throw new Error('Rebuilt maps failed validation');
+ const pointer=path.join(this.userData,'current-snapshot');await writeFile(pointer+'.tmp',path.basename(staging));await rename(pointer+'.tmp',pointer);this.activeData=staging;this.report('complete',`${changes.added} new, ${changes.updated} updated, ${changes.removed} no longer listed`,{changes,fetchedAt:fresh.meta.fetchedAt});
+ }catch(error){await rm(staging,{recursive:true,force:true});this.report('failed',error.message||'Snapshot update failed; the previous snapshot is unchanged.');}return this.status;}
+}

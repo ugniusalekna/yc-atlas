@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+.hallmark/screenshots/
+*.tar.gz
+__pycache__/
+.cache/
+release/
+.desktop-test/

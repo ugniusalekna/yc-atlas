@@ -1,0 +1,47 @@
+{
+  "name": "yc-atlas",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A macOS and Linux company atlas with live Chromium website reels",
+  "scripts": {
+    "dev": "electron .",
+    "check": "node --check dist/app.js && node --check dist/insights.js && node --check dist/layouts.js && node --check dist/controls.js && node --check dist/saved.js && node --check scripts/build-semantics.mjs && node --check electron/main.mjs && node --check electron/preload.cjs && node --check electron/reels.mjs && node --check electron/directory.mjs && node --check electron/refresh.mjs && node --check dist/discovery.js && node --check dist/reels-view.js && node --check electron/smoke.mjs && node --check electron/scroll.mjs && node --check dist/environment.js && node --check electron/reels-core.mjs && node --check electron/guest-preload.cjs",
+    "test": "node scripts/check-data.mjs && node scripts/check-semantics.mjs && node scripts/test-interactions.mjs && node scripts/test-saved.mjs && node scripts/test-desktop.mjs && node scripts/test-reels-pool.mjs && node scripts/test-motion.mjs && node scripts/test-reel-filters.mjs",
+    "build:semantic": "node scripts/build-semantics.mjs",
+    "start": "electron .",
+    "web": "node scripts/serve.mjs",
+    "package:mac": "electron-builder --mac dir --config.electronDist=node_modules/electron/dist",
+    "dist:mac": "electron-builder --mac dmg zip --config.electronDist=node_modules/electron/dist",
+    "dist:linux": "electron-builder --linux AppImage deb",
+    "smoke:desktop": "electron electron/smoke.mjs",
+    "prepackage:mac": "node scripts/prepare-preload.mjs && node scripts/ensure-electron.cjs",
+    "predist:mac": "node scripts/prepare-preload.mjs && node scripts/ensure-electron.cjs",
+    "prestart": "node scripts/prepare-preload.mjs",
+    "predev": "node scripts/prepare-preload.mjs",
+    "predist:linux": "node scripts/prepare-preload.mjs",
+    "presmoke:desktop": "node scripts/prepare-preload.mjs"
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0",
+    "jsdom": "^29.1.1",
+    "puppeteer-core": "^25.16.0"
+  },
+  "main": "electron/main.mjs",
+  "productName": "YC Atlas",
+  "author": {
+    "name": "YC Atlas"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
+    "umap-js": "^1.4.0",
+    "ml-kmeans": "^7.0.1"
+  },
+  "build": {
+    "extends": "./electron-builder.config.cjs"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

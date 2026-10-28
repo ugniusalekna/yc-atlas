@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Y Combinator companies grouped by topic, with description-based similarity maps, region filters, and cohort summaries.">
+  <meta name="theme-color" content="#f7f5f1">
+  <title>YC Atlas | Company directory</title>
+  <link rel="icon" type="image/svg+xml" href="app-icon.svg">
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600&display=swap">
+  <link rel="stylesheet" href="styles.css">
+  <script src="d3.min.js" defer></script>
+  <script src="insights.js" defer></script>
+  <script src="layouts.js" defer></script>
+  <script src="controls.js" defer></script>
+  <script src="saved.js" defer></script>
+  <script src="discovery.js" defer></script>
+  <script src="reels-view.js" defer></script>
+  <script src="environment.js"></script>
+  <link rel="stylesheet" href="desktop.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+ <a class="skip" href="#main">Skip to explorer</a>
+ <div class="app-shell">
+  <header class="masthead">
+   <a class="brand" href="./" aria-label="YC Atlas home"><img class="brand-symbol" src="app-icon.svg" width="36" height="36" alt=""><span>YC <strong>Atlas</strong></span></a>
+   <nav class="primary-nav" aria-label="Main"><button type="button" id="explore-nav" aria-current="page">Explore</button><button type="button" id="reels-nav">Reels</button><button type="button" id="summary-nav">Summary</button><button type="button" id="saved-nav">Saved <span id="saved-count">0</span></button><button type="button" id="liked-nav">Liked <span id="liked-count">0</span></button></nav>
+   <div class="search"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4 4"/></svg><input id="search" name="search" type="search" autocomplete="off" placeholder="Search companies, ideas, or tags…" aria-label="Search companies, ideas, or tags" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="company-search-results"><kbd>/</kbd><div id="company-search-popup" class="company-search-popup" hidden><div id="company-search-results" role="listbox" aria-label="Matching companies"></div><p id="company-search-status" role="status"></p></div></div>
+   <button type="button" id="refresh-snapshot" class="quiet-button">Update snapshot</button>
+   <a class="source-link" href="https://www.ycombinator.com/companies" target="_blank" rel="noopener noreferrer">YC directory <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg></a>
+  </header>
+  <main id="main">
+   <div class="page-heading"><div><h1>Companies</h1></div><div id="reel-feed-controls" class="reel-filter-summary" hidden><strong id="reel-feed-label">For you</strong><span id="reel-scope-summary"></span><button type="button" id="reel-filter-toggle" class="quiet-button" aria-expanded="false" aria-controls="reel-filter-panel">Filters</button><button type="button" id="reel-clear-filters" class="text-button" hidden>Back to For you</button></div><span class="snapshot" id="snapshot">Loading the directory…</span></div>
+   <section class="workbench" aria-label="Company explorer">
+    <section id="reels-panel" aria-label="Company reels" hidden>
+     <section id="reel-filters" class="reel-filters" aria-label="Reel filters">
+      <div id="reel-filter-panel" class="reel-filter-panel" hidden>
+       <div class="reel-filter-fields">
+        <details class="filter-dropdown" id="reel-topic-filter"><summary>All topics</summary><div class="filter-options"></div></details>
+        <details class="filter-dropdown" id="reel-region-filter"><summary>All regions</summary><div class="filter-options"></div></details>
+        <details class="filter-dropdown" id="reel-batch-filter"><summary>All batches</summary><div class="filter-options"></div></details>
+        <details class="filter-dropdown" id="reel-status-filter"><summary>Any status</summary><div class="filter-options"></div></details>
+        <label><span class="visually-hidden">YC tag</span><select id="reel-tag"><option value="">Any YC tag</option></select></label>
+        <label><span class="visually-hidden">Batch year</span><select id="reel-year"><option value="">Any year</option></select></label>
+        <label><span class="visually-hidden">Description group</span><select id="reel-group"><option value="">Any description group</option></select></label>
+       </div>
+       <div class="reel-filter-apply"><span id="reel-draft-count" role="status"></span><button type="button" id="reel-cancel-filters" class="quiet-button">Cancel</button><button type="button" id="reel-apply-filters" class="quiet-button">Apply filters</button></div>
+      </div>
+     </section>
+     <div id="reel-content"></div>
+    </section>
+    <aside class="topics-panel">
+     <div class="topics-heading"><h2>Explore by topic</h2><button type="button" id="mobile-topics" aria-expanded="false" aria-controls="topic-list" aria-label="Show topics">Topics <span aria-hidden="true">⌄</span></button></div>
+     <div id="topic-list"><button type="button" class="topic active" data-topic="all"><svg class="topic-symbol" viewBox="0 0 20 20" width="15" height="15" aria-hidden="true"><circle cx="7" cy="7" r="4"/><circle cx="13" cy="13" r="4"/></svg><span>All companies</span><span id="total-count" class="topic-count"></span></button><div class="topic-divider"></div><div id="topics"></div></div>
+     <div class="sidebar-note"><p>Topics may overlap.</p><span>Counts include the current filters.</span><button type="button" class="text-button" id="about">About this atlas</button></div>
+    </aside>
+    <aside id="saved-folders" class="saved-folders" aria-label="Saved company folders" hidden>
+     <div class="saved-folders-heading"><h2>Folders</h2><button type="button" class="text-button" id="new-folder">+ New</button></div>
+     <nav id="folder-list" aria-label="Folders"></nav>
+     <p class="folder-storage-note">Saved on this browser.<br>Folders and notes stay private to you.</p>
+    </aside>
+    <div class="explorer">
+     <div class="explorer-toolbar"><div class="breadcrumbs"><button type="button" id="home-crumb">All companies</button><span id="topic-crumb"></span></div><div class="view-toggle" role="group" aria-label="View"><button type="button" id="map-view" class="selected" aria-pressed="true"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><circle cx="7" cy="7" r="4"/><circle cx="14" cy="13" r="4"/><circle cx="5" cy="15" r="2"/></svg>Map</button><button type="button" id="list-view" aria-pressed="false"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M6 5h11M6 10h11M6 15h11M2 5h1M2 10h1M2 15h1"/></svg>List</button></div><details id="map-settings" class="map-settings"><summary>Settings</summary><div class="settings-panel"><label for="map-limit">Companies per map page</label><select id="map-limit"><option value="50">50</option><option value="100" selected>100</option><option value="200">200</option><option value="300">300</option><option value="all">All in selected group</option></select><label for="map-logo-size">Logo size <output id="map-logo-output">36 px</output></label><input id="map-logo-size" type="range" min="12" max="30" step="2" value="18"></div></details></div>
+     <section id="saved-tools" class="saved-tools" aria-label="Saved company controls" hidden>
+      <div class="saved-heading"><h2 id="saved-folder-title">All saved</h2><span id="folder-management" hidden><button type="button" id="rename-folder" class="text-button">Rename</button><button type="button" id="delete-folder" class="quiet-button">Delete folder</button></span></div>
+      <div class="saved-controls"><label for="saved-sort">Sort <select id="saved-sort"><option value="newest">Recently saved</option><option value="oldest">Oldest saved</option><option value="name">Company name A–Z</option></select></label><button type="button" id="export-saved" class="quiet-button">Export CSV</button></div>
+      <p id="saved-storage-error" class="saved-storage-error" role="alert" hidden>Browser storage is unavailable. Changes will only last for this session; export a copy before closing.</p>
+     </section>
+     <div class="filters">
+      <details class="filter-dropdown" id="batch-filter"><summary id="batch">All batches</summary><div class="filter-options"></div></details>
+      <details class="filter-dropdown" id="status-filter"><summary id="status">Any status</summary><div class="filter-options"></div></details>
+      <details class="filter-dropdown" id="region-filter"><summary id="region">All regions</summary><div class="filter-options"></div></details>
+      <span id="insight-filter" class="insight-filter" hidden></span><button type="button" class="text-button" id="clear-filters" hidden>Clear all filters</button>
+     </div>
+     <div class="visual-stage" id="stage" aria-busy="true">
+      <div id="loading" class="stage-message" role="status"><span class="loading-shape" aria-hidden="true"></span><h2>Loading companies…</h2></div>
+      <svg id="map" role="group" aria-label="Interactive topic map. Select a topic to explore its companies." hidden><defs id="map-defs"></defs><g id="map-content"></g></svg>
+      <div id="company-list" tabindex="0" role="region" aria-label="Scrollable company list" hidden></div>
+      <div id="summary-panel" tabindex="0" role="region" aria-label="Directory summary" hidden></div>
+      <div id="semantic-notice" class="stage-message" hidden><h2>Description map unavailable</h2><p>The directory list is still available.</p><button type="button" class="btn" data-open-list>Show list</button></div>
+      <div id="semantic-navigation" class="semantic-navigation" hidden><label><span class="visually-hidden">Description group</span><select id="description-group" name="description-group"><option value="">Select a description group</option></select></label><button type="button" id="all-groups" hidden>All groups</button></div>
+      <div id="empty" class="stage-message" hidden><h2>No matching companies.</h2><p id="empty-description">Try another search or clear your filters.</p><button type="button" class="btn" id="reset-empty">Clear filters</button></div>
+      <div id="data-error" class="stage-message" hidden><h2>The directory couldn’t load.</h2><p>Check your connection and try again.</p><button type="button" class="btn" id="retry">Try again</button></div>
+      <div class="map-caption" id="map-caption"><svg class="caption-mark" viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><path d="M16 3v26M3 16h26M7 7l18 18M7 25 25 7"/></svg><span>Bubble area shows company count.<br><strong>Select a topic.</strong></span></div>
+      <div class="zoom-controls" id="zoom-controls"><button type="button" id="zoom-in" aria-label="Zoom in">+</button><button type="button" id="zoom-out" aria-label="Zoom out">−</button><span></span><button type="button" id="zoom-reset" aria-label="Fit map to screen"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M7 3H3v4m10-4h4v4M3 13v4h4m6 0h4v-4"/></svg></button></div>
+     </div>
+     <div class="explorer-footer"><span id="results-count" role="status" aria-live="polite">Loading companies…</span><div class="pagination" id="pagination" hidden><button type="button" id="prev-page" aria-label="Previous page"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m12 5-5 5 5 5"/></svg></button><span id="page-count"></span><button type="button" id="next-page" aria-label="Next page"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="m8 5 5 5-5 5"/></svg></button></div><span id="map-hint">Drag to pan. Scroll to zoom.</span></div>
+    </div>
+    <aside class="inspector" id="inspector" aria-label="Company and topic details"><div id="inspector-content"><h2>Company details</h2><p>Select a company to view its profile.</p></div></aside>
+   </section>
+   <footer class="page-footer"><span>Source: Y Combinator directory.</span><span id="data-date"></span><button type="button" id="export-library">Export library</button><button type="button" id="import-library">Import library</button><input id="library-file" type="file" accept="application/json,.json" hidden><a href="data/companies.json" download="yc-companies.json">Download directory</a></footer>
+  </main>
+ </div>
+ <dialog id="about-dialog" aria-labelledby="about-title"><button type="button" id="close-about" class="close-button" aria-label="Close about">×</button><h2 id="about-title">About YC Atlas</h2><p>YC Atlas is an independent explorer of the public Y Combinator company directory.</p><p id="about-coverage"></p><p>Topics are derived from YC tags and industry fields. Description keywords do not assign topics. They overlap and are not official YC cohorts. Company details and logos come from YC and may change.</p><p>Overview clusters show a selection of company logos. Open a topic to browse every matching company. Topic bubble area is proportional to the number of matching companies. Topics overlap, so a company may be counted in several bubbles. Topic positions are scattered for navigation. Within a topic, company positions use local sentence embeddings (MiniLM) and a UMAP projection of description similarity. Nearby points tend to have related descriptions; axes have no units and distances are approximate. K-means groups are labeled using distinctive description terms. Regions show the density of description groups, not company counts. Select a region to reveal its company logos while other regions remain collapsed. Map settings let you display 50, 100, 200, 300, or all companies in the selected group. Paging preserves your pan and zoom. Company markers grow as you zoom in, and logo size is adjustable. Click a company to center it. Escape or a background click clears only the selected description group. Batch, status, and geographic filters support multiple selections. Filters preserve the semantic anchors; small local spacing adjustments keep markers apart. Companies without text are listed separately. All text processing runs locally when building the snapshot.</p><p>Your saved companies, folders, dates, and notes stay in this browser. Export a folder or filtered selection as CSV. No account required.</p><a href="https://www.ycombinator.com/companies" target="_blank" rel="noopener noreferrer">Visit the original directory</a></dialog>
+ <dialog id="snapshot-dialog" aria-labelledby="snapshot-title"><h2 id="snapshot-title">Directory snapshot</h2><p id="snapshot-current"></p><p id="snapshot-progress" role="status" aria-live="polite">Ready to update</p><progress id="snapshot-spinner" hidden></progress><p id="snapshot-help">Updates fetch all public YC records, verify coverage, and rebuild description maps. Your saved companies, folders, likes, and notes stay on this computer.</p><div class="folder-dialog-actions"><button type="button" id="close-snapshot" class="btn btn-secondary">Close</button><button type="button" id="start-snapshot" class="btn">Update now</button></div></dialog>
+ <dialog id="folder-dialog" aria-labelledby="folder-dialog-title"><form id="folder-form"><h2 id="folder-dialog-title">New folder</h2><label for="folder-name">Folder name</label><input id="folder-name" name="folder-name" type="text" maxlength="64" required autocomplete="off"><p id="folder-error" role="alert" hidden></p><div class="folder-dialog-actions"><button type="button" id="cancel-folder" class="btn btn-secondary">Cancel</button><button type="submit" class="btn">Save folder</button></div></form></dialog>
+ <div id="library-menu" class="library-menu" role="menu" tabindex="-1" aria-label="Company actions" hidden></div>
+ <div id="saved-toast" class="saved-toast" hidden><span id="saved-toast-text" role="status" aria-live="polite"></span><button type="button" id="undo-saved" hidden>Undo</button><button type="button" id="dismiss-saved-toast" aria-label="Dismiss notification">×</button></div>
+ <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
+ <noscript><div class="noscript">The interactive map needs JavaScript. You can still <a href="data/companies.json">download the complete company directory</a> or <a href="https://www.ycombinator.com/companies">browse YC’s directory</a>.</div></noscript>
+</body>
+</html>

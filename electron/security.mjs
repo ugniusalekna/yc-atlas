@@ -1,0 +1,5 @@
+import path from 'node:path';
+export function webURL(value){try{const u=new URL(value);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:null;}catch{return null;}}
+export function trustedFrame(event,window){return event.sender===window?.webContents&&event.senderFrame===window.webContents.mainFrame&&event.senderFrame.url.startsWith('atlas://app/');}
+export function assetPath(url,root){const u=new URL(url);if(u.hostname!=='app')return null;let pathname;try{pathname=decodeURIComponent(u.pathname);}catch{return null;}const result=path.resolve(root,'.'+(pathname==='/'?'/index.html':pathname));return result.startsWith(path.resolve(root)+path.sep)?result:null;}
+export function previewBounds(value,width,height){if(!value||!['x','y','width','height'].every(k=>Number.isFinite(value[k])))throw new Error('Invalid preview bounds');const x=Math.max(0,Math.min(width,Math.round(value.x))),y=Math.max(0,Math.min(height,Math.round(value.y)));return{x,y,width:Math.max(0,Math.min(width-x,Math.round(value.width))),height:Math.max(0,Math.min(height-y,Math.round(value.height)))};}

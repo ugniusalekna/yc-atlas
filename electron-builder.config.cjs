@@ -1,0 +1,4 @@
+const {existsSync}=require('node:fs');
+const path=require('node:path');
+process.env.ELECTRON_BUILDER_CACHE??=path.join(__dirname,'.cache/electron-builder');
+module.exports={appId:'com.ycatlas.desktop',productName:'YC Atlas',directories:{output:'release'},files:['dist/**/*','electron/**/*','scripts/build-semantics.mjs','assets/icon.png','package.json'],asar:true,asarUnpack:['node_modules/onnxruntime-node/**','node_modules/sharp/**','node_modules/@img/**'],extraResources:existsSync('.cache/models')?[{from:'.cache/models',to:'models'}]:[],mac:{category:'public.app-category.business',target:['dmg','zip'],identity:'-',hardenedRuntime:false,icon:'assets/icon.icns'},linux:{target:['AppImage','deb'],category:'Office',icon:'assets/icon.png',maintainer:'YC Atlas'},dmg:{title:'YC Atlas',sign:false}};

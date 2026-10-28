@@ -1,0 +1,33 @@
+name: Desktop builds
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  package:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check && npm test
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot dpkg libfuse2t64
+      - if: runner.os == 'Linux'
+        run: npm run dist:linux
+      - if: runner.os == 'macOS'
+        run: npm run dist:mac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yc-atlas-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            release/*.zip
+            release/*.dmg
+            release/*.deb
+            release/*.AppImage

@@ -1,0 +1,17 @@
+{
+  "scanned": "2026-10-27",
+  "findings": {
+    "project": "Empty workspace",
+    "framework": "Buildless HTML, JavaScript, local D3",
+    "material": "Public YC directory, company logos and profile fields"
+  },
+  "preserve": [
+    "YC source information and logos"
+  ],
+  "introduce": [
+    "Hallmark Coral app theme",
+    "Topic bubble explorer",
+    "Company inspector",
+    "Filters and browser-local saved collection"
+  ]
+}
