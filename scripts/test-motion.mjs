@@ -16,6 +16,7 @@ for(const file of ['d3.min','insights','layouts','controls','saved','discovery',
 const tick=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const el=s=>{const node=d.querySelector(s);assert.ok(node,s);return node;};
 const click=s=>{const node=typeof s==='string'?el(s):s;if(node.click)node.click();else node.dispatchEvent(new w.MouseEvent('click',{bubbles:true}));};
+const reelKey=direction=>{d.activeElement?.blur();if(d.querySelector('[data-reel-action="pause"]')?.getAttribute('aria-pressed')==='true')d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));d.dispatchEvent(new w.KeyboardEvent('keydown',{key:direction==='previous'?'ArrowUp':'ArrowDown',bubbles:true,cancelable:true}));};
 const camera=()=>{const t=w.d3.zoomTransform(el('#map'));return{x:t.x,y:t.y,k:t.k};};
 const near=(a,b)=>['x','y','k'].every(key=>Math.abs(a[key]-b[key])<1e-5);
 await tick(40);assert.equal(el('#stage').getAttribute('aria-busy'),'false');
@@ -33,7 +34,7 @@ const found=el('.semantic-company.is-selected'),[foundX,foundY]=found.getAttribu
 const rememberedCamera=camera(),rememberedURL=w.location.search;click('#chat-nav');click('#explore-nav');assert.equal(w.location.search,rememberedURL);assert.ok(near(camera(),rememberedCamera),'Returning to Explore must restore its camera immediately');await tick(550);assert.ok(near(camera(),rememberedCamera),'No delayed centering animation may overwrite the restored camera');
 click('#reels-nav');await tick(50);assert.equal(shown.length,1);assert.ok(warmed.length>0);
 const seenBefore=JSON.parse(w.localStorage.getItem('yc-atlas-discovery')).seen.map(([id])=>id);assert.deepEqual(seenBefore,[shown[0].companyId],'Preloading a recommendation must not mark it watched');
-click('[data-reel-action="next"]');await tick(40);assert.equal(shown.at(-1).animate,true);assert.equal(shown.at(-1).direction,'next');assert.ok(animations.some(a=>a.frames[0].transform==='translateY(64px)'));
+reelKey('next');await tick(40);assert.equal(shown.at(-1).animate,true);assert.equal(shown.at(-1).direction,'next');assert.ok(animations.some(a=>a.frames[0].transform==='translateY(64px)'));
 receive({type:'reel-transition',companyId:shown.at(-1).companyId,transitionId:42,from:'data:image/jpeg;base64,AA==',to:'data:image/jpeg;base64,AA==',direction:'next',duration:360});await tick(10);
 assert.ok(animations.some(a=>a.frames[0].transform==='translateY(100%)'));assert.equal(finished.at(-1).transitionId,42);assert.equal(d.querySelector('.reel-transition'),null);
 assert.deepEqual(errors,[]);dom.window.close();

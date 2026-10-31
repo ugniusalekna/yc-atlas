@@ -151,7 +151,7 @@ function render() {
  $('search').value=state.tab==='reels'?reelScope.q:state.q;
  for(const key of ['batch','status','region'])filterControls[key]?.set(state[key]);
  const isSummary=state.tab==='summary',isReels=state.tab==='reels',isLiked=state.tab==='liked',isChat=state.tab==='chat';
- $('chat-panel').hidden=!isChat;document.querySelector('.workbench').classList.toggle('chat-mode',isChat);document.querySelector('.page-heading').hidden=isChat;document.querySelector('.page-footer').hidden=isChat;document.querySelector('.search').hidden=isChat;
+ $('chat-panel').hidden=!isChat;document.querySelector('.workbench').classList.toggle('chat-mode',isChat);document.querySelector('.page-heading').hidden=isChat;document.querySelector('.page-footer').hidden=false;document.querySelector('.search').hidden=isChat;
  $('reel-feed-controls').hidden=!isReels;$('snapshot').hidden=isReels||isChat;document.querySelector('.page-heading').classList.toggle('reels-heading',isReels);
  $('liked-count').textContent=companies.filter(c=>discovery.likes.has(c.id)).length;
  document.querySelector('.workbench').classList.toggle('reels-mode',isReels);$('reels-panel').hidden=!isReels;
@@ -171,7 +171,7 @@ function render() {
  const topic=topics.find(t=>t.id===state.topic);
  document.querySelector('.page-heading h1').textContent=isSummary?'Summary':isReels?'Reels':isLiked?'Liked companies':state.saved?'Saved companies':topic?.name||'Companies';
  $('home-crumb').textContent=isSummary?'Directory summary':state.saved?'Saved companies':'All companies'; $('topic-crumb').textContent=isSummary?'':topic?.name || '';
- $('mobile-topics').innerHTML=`${esc(topic?.name || 'All topics')} <span aria-hidden="true">⌄</span>`;
+ $('mobile-topics').innerHTML=`${esc(topic?.name || 'All topics')} <span class="dropdown-chevron" aria-hidden="true"></span>`;
  const groupLabel=state.group===null?'':activeSemanticLayout()?.clusters.find(g=>g.id===state.group)?.label||'';
  $('clear-filters').hidden=!(state.q||state.batch.length||state.status.length||state.region.length||state.tag||state.year||state.missing||groupLabel);
  $('insight-filter').hidden=!(state.tag||state.year||state.missing||groupLabel);
@@ -490,7 +490,7 @@ function saveMapSettings(){try{localStorage.setItem('yc-atlas-map-settings',JSON
 $('map-limit').onchange=e=>{const oldLimit=mapPageSize(),start=Number.isFinite(oldLimit)?state.page*oldLimit:0;mapSettings.limit=e.target.value==='all'?'all':Number(e.target.value);saveMapSettings();const limit=mapPageSize();update({page:Number.isFinite(limit)?Math.floor(start/limit):0,company:state.company});};
 $('map-logo-size').oninput=e=>{$('map-logo-output').textContent=`${Number(e.target.value)*2} px`;};
 $('map-logo-size').onchange=e=>{mapSettings.logoSize=Number(e.target.value);saveMapSettings();render();};
-document.addEventListener('click',e=>{const current=e.target.closest('.filter-dropdown,.map-settings');for(const popup of document.querySelectorAll('.filter-dropdown[open],.map-settings[open]'))if(popup!==current){popup.open=false;e.__dismissedPopup=true;}},true);
+document.addEventListener('click',e=>{if(!$('reel-filter-panel').hidden&&!e.target.closest('#reel-filter-panel,#reel-filter-toggle'))closeReelFilterPanel();const current=e.target.closest('.filter-dropdown,.map-settings');for(const popup of document.querySelectorAll('.filter-dropdown[open],.map-settings[open]'))if(popup!==current){popup.open=false;e.__dismissedPopup=true;}},true);
 function isCompanySearch(){return state.tab==='explore'&&!state.saved;}
 function closeCompanySearch(){companySearchResults=[];companySearchActive=0;companySearchQuery='';$('company-search-popup').hidden=true;$('search').setAttribute('aria-expanded','false');$('search').removeAttribute('aria-activedescendant');}
 function companySearchText(value){return String(value||'').normalize('NFKD').replace(/\p{M}/gu,'').toLowerCase().trim();}
@@ -570,9 +570,8 @@ async function load(){
   mountReelControls(batches,regions,countries,workModes);
   const date=new Date(data.meta.fetchedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   $('snapshot').textContent=`${fmt(companies.length)} directory records`;
-  $('data-date').textContent=`Snapshot ${date}`;
+  $('data-date').textContent=`Snapshot ${date}`;$('refresh-snapshot').title=`Update snapshot · current snapshot ${date}`;
   $('about-coverage').textContent=`All ${fmt(companies.length)} public directory records were gathered on ${date}. Each batch was checked against its reported count, then records were deduplicated and checked against the directory total.`;
-  if(window.atlasDesktop)document.querySelector('.folder-storage-note').textContent='Saved on this computer. Folders and notes stay private to you.';
   readURL();$('loading').hidden=true;$('stage').setAttribute('aria-busy','false');render();
  }catch(error){console.error('Unable to open YC Atlas:',error);data=null;$('loading').hidden=true;$('data-error').hidden=false;$('map-caption').hidden=true;$('zoom-controls').hidden=true;$('results-count').textContent='Directory unavailable';$('snapshot').textContent='Directory unavailable';$('stage').setAttribute('aria-busy','false');}
 }
@@ -768,8 +767,11 @@ $('library-file').onchange=async event=>{try{const file=event.target.files[0];if
 if(window.atlasDesktop){
  window.atlasDesktop.onEvent(event=>{
   if(event.type==='reel-status')reelsView?.status(event);
+  if(event.type==='reel-overlay-preview')void reelsView?.overlayPreview(event);
   if(event.type==='reel-transition')reelsView?.transition(event);
   if(event.type==='reel-navigation'&&state.tab==='reels')reelsView?.navigate(event.direction);
+  if(event.type==='reel-ended'&&state.tab==='reels')reelsView?.ended(event);
+  if(event.type==='reel-page'&&state.tab==='reels')reelsView?.page(event);
   if(event.type==='reel-playback'&&reelsView)reelsView.setPaused(event.paused,false);
   if(event.type==='snapshot-status')snapshotStatus(event);
   if(event.type==='navigate')$(`${event.tab}-nav`)?.click();
@@ -779,7 +781,7 @@ if(window.atlasDesktop){
   if(event.type==='export-library')exportLibrary().catch(error=>notifySaved(error.message));
  });
  let overlayShown=false;
- new MutationObserver(()=>{const visible=Boolean(document.querySelector('dialog[open],#reel-filters .filter-dropdown[open]'))||!$('library-menu').hidden;if(visible!==overlayShown){overlayShown=visible;window.atlasDesktop.overlay(visible).catch(()=>{});}}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open','hidden']});
+ new MutationObserver(()=>{const visible=Boolean(document.querySelector('dialog[open],#reel-filter-panel:not([hidden]),#reel-filters .filter-dropdown[open],.reel-more[open],.app-select[data-menu-open],.app-combobox[data-menu-open]'))||!$('library-menu').hidden;if(visible!==overlayShown){overlayShown=visible;window.atlasDesktop.overlay(visible).catch(()=>{});}}).observe(document.body,{subtree:true,attributes:true,attributeFilter:['open','hidden','data-menu-open']});
 }
 
 function normalizeReelScope(value={}){const scope=emptyReelScope();for(const key of ['topics','batch','status','region'])scope[key]=selectedValues(value[key]);for(const key of ['q','tag','year'])scope[key]=String(value[key]||'');scope.group=Number.isInteger(value.group)&&value.group>=0?value.group:null;return scope;}
@@ -788,7 +790,7 @@ function readReelURL(params){const scope={};for(const [key,name]of [['topics','r
 function writeReelURL(params){for(const [key,name]of [['topics','rtopic'],['batch','rbatch'],['status','rstatus'],['region','rregion']])for(const value of reelScope[key])params.append(name,value);for(const key of ['q','tag','year'])if(reelScope[key])params.set('r'+key,reelScope[key]);if(reelScope.group!==null)params.set('rgroup',reelScope.group);}
 function reelLayout(scope){return semantic?.layouts[scope.topics.length===1?scope.topics[0]:'all']||semantic?.layouts.all;}
 function matchesReelScope(company,scope,includeGroup=true){return YCControls.matchesFacets(company,scope,{matchesRegion,yearOf:YCInsights.yearOf})&&(!includeGroup||scope.group===null||reelLayout(scope)?.points[company.id]?.[2]===scope.group);}
-function closeReelFilterPanel(){for(const popup of document.querySelectorAll('#reel-filters details[open]'))popup.open=false;$('reel-filter-panel').hidden=true;$('reel-filter-toggle').setAttribute('aria-expanded','false');}
+function closeReelFilterPanel(){window.YCAtlasDropdowns?.closeAll();for(const popup of document.querySelectorAll('#reel-filters details[open]'))popup.open=false;$('reel-filter-panel').hidden=true;$('reel-filter-toggle').setAttribute('aria-expanded','false');}
 function applyReelScope(value,replace=false){reelScope=normalizeReelScope(value);reelDraft=normalizeReelScope(reelScope);closeReelFilterPanel();writeURL(replace);render();}
 function renderReelDraft(){
  if(!data)return;
@@ -805,7 +807,7 @@ function renderReelControls(){
  const active=reelScopeActive(reelScope),group=reelScope.group===null?'':reelLayout(reelScope)?.clusters.find(g=>g.id===reelScope.group)?.label;
  const labels=[...reelScope.topics.map(id=>topics.find(topic=>topic.id===id)?.name||id),...reelScope.region,...reelScope.batch,...reelScope.status,reelScope.tag,reelScope.year,group,reelScope.q.trim()?`Search: ${reelScope.q}`:''].filter(Boolean);
  $('reel-feed-label').textContent=active?'Filtered':'For you';$('reel-scope-summary').textContent=`${fmt(eligible.length)} companies with websites${active?' / '+labels.slice(0,2).join(' / '):''}`;$('reel-scope-summary').title=labels.join(', ');
- $('reel-filter-toggle').textContent=active?`Filters (${active})`:'Filters';$('reel-clear-filters').hidden=!active;
+ $('reel-filter-toggle').classList.toggle('has-filters',Boolean(active));$('reel-filter-toggle').setAttribute('aria-label',active?`Filters (${active} active)`:'Filters');$('reel-filter-toggle').title=active?`Filters (${active} active)`:'Filters';$('reel-clear-filters').hidden=!active;
  if(reelsView)reelsView.scopeFiltered=Boolean(active);
  if(!$('reel-filter-panel').hidden)renderReelDraft();
 }
@@ -817,13 +819,14 @@ function mountReelControls(batches,regions,countries,workModes){
  $('reel-year').innerHTML='<option value="">Any year</option>'+[...new Set(companies.map(YCInsights.yearOf).filter(Boolean))].sort((a,b)=>b-a).map(year=>`<option>${year}</option>`).join('');
 }
 for(const [key,label,field]of [['topic','All topics','topics'],['region','All regions','region'],['batch','All batches','batch'],['status','Any status','status']])reelControls[key]=new YCControls.MultiFilter('reel-'+key,label,values=>{reelDraft=normalizeReelScope({...reelDraft,[field]:values,...(field==='topics'?{group:null}:{})});renderReelDraft();});
+$('reel-reset-draft').onclick=()=>{reelDraft=emptyReelScope();renderReelDraft();};
 $('reel-filter-toggle').onclick=()=>{if(!$('reel-filter-panel').hidden){closeReelFilterPanel();return;}reelDraft=normalizeReelScope(reelScope);$('reel-filter-panel').hidden=false;$('reel-filter-toggle').setAttribute('aria-expanded','true');renderReelDraft();};
 $('reel-cancel-filters').onclick=closeReelFilterPanel;$('reel-apply-filters').onclick=()=>applyReelScope(reelDraft);$('reel-clear-filters').onclick=()=>applyReelScope(emptyReelScope());
 for(const [id,field]of [['reel-tag','tag'],['reel-year','year'],['reel-group','group']])$(id).onchange=event=>{reelDraft=normalizeReelScope({...reelDraft,[field]:field==='group'?(event.target.value===''?null:Number(event.target.value)):event.target.value});renderReelDraft();};
 document.addEventListener('click',event=>{if(event.target.closest('[data-clear-reel-filters]'))applyReelScope(emptyReelScope());});
 
 window.YCAtlasAssistantContext={
- company:id=>companies.find(c=>c.id===id),selected:()=>state.tab==='chat'?window.YCAtlasAssistantContext.chatCompany:state.tab==='reels'?reelsView?.current?.company:companies.find(c=>c.id===state.company),view:()=>({snapshot:data?.meta.fetchedAt,tab:state.tab,topic:state.topic,batch:state.batch,region:state.region,status:state.status}),locate:locateSearchCompany,
+ company:id=>companies.find(c=>c.id===id),selected:()=>state.tab==='chat'?window.YCAtlasAssistantContext.chatCompany:state.tab==='reels'?reelsView?.current?.company:companies.find(c=>c.id===state.company),view:()=>JSON.parse(JSON.stringify({snapshot:data?.meta.fetchedAt,...state,reels:state.tab==='reels'?{feed:reelScopeActive(reelScope)?'filtered':'for-you',filters:reelScope,companyId:reelsView?.current?.company.id,paused:reelsView?.paused,speed:reelsView?.speed,autoNext:reelsView?.autoNext}:undefined})),locate:locateSearchCompany,
  async execute(name,args,cap={}){
   const compact=c=>({id:c.id,name:c.name,summary:c.summary.slice(0,350),batch:c.batch,status:c.status,topics:c.topics,regions:c.regions,reference:`[[company:${c.id}]]`});
   const requireCompany=id=>{if(!Number.isInteger(id))throw new Error('Invalid company ID');const company=companies.find(c=>c.id===id);if(!company)throw new Error('Company not found');return company;};
