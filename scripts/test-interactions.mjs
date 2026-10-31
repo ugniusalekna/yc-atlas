@@ -46,6 +46,8 @@ assert.equal(el('#tooltip').hidden,false);assert.match(el('#tooltip').textConten
 clusters[0].dispatchEvent(new w.MouseEvent('pointerleave'));assert.equal(el('#tooltip').hidden,true);
 assert.equal(d.querySelectorAll('.cluster-count').length,0);
 
+// The All companies inspector offers every topic, with counts consistent with the sidebar.
+click('#home-crumb');let suggestions=[...d.querySelectorAll('#inspector-content .suggestion[data-topic]')];assert.equal(suggestions.length,dataset.topics.length);assert.deepEqual(suggestions.map(node=>node.dataset.topic),dataset.topics.map(topic=>topic.id));for(const node of suggestions)assert.equal(node.querySelector('span:last-child').textContent,el(`#topics [data-topic="${node.dataset.topic}"] .topic-count`).textContent);click('#inspector-content [data-topic="finance"]');assert.equal(params().get('topic'),'finance');click('#home-crumb');filter('region','Europe');suggestions=[...d.querySelectorAll('#inspector-content .suggestion[data-topic]')];assert.equal(suggestions.length,dataset.topics.length);for(const node of suggestions)assert.equal(node.querySelector('span:last-child').textContent,el(`#topics [data-topic="${node.dataset.topic}"] .topic-count`).textContent);filter('region','Europe');
 // Multiple selections are OR within a dropdown and AND across dropdowns.
 click('#list-view');filter('batch','Fall 2026');filter('batch','Spring 2026');
 assert.equal(count(),dataset.companies.filter(c=>['Fall 2026','Spring 2026'].includes(c.batch)).length);
@@ -197,6 +199,16 @@ stageHeight+=30;resizeObservers[0]();await tick(150);assert.equal(el('#map').get
 navigate('/?group=0');click('.semantic-company');click('#map');assert.equal(d.querySelectorAll('.cluster').length,14);
 const topicsCamera=w.d3.zoomTransform(el('#map'));
 for(const topic of d.querySelectorAll('.cluster')){const b=topic.__data__.bounds;assert.ok(topicsCamera.applyX(b.left)>=0&&topicsCamera.applyX(b.right)<=stageWidth);assert.ok(topicsCamera.applyY(b.top)>=0&&topicsCamera.applyY(b.bottom)<=stageHeight);}
+// Main navigation restores the workspace, rather than resetting Explore.
+navigate('/?topic=defense&region=Europe&batch=Fall+2026&status=Active');const priorToGroup=camera();click('[data-semantic-group]');click('.semantic-company');click('#zoom-in');const exploredCamera=camera(),exploredURL=w.location.search,exploredCompany=Number(params().get('company'));
+el('#inspector').scrollTop=91;el('#inspector-content').scrollTop=113;d.querySelector('.topics-panel').scrollTop=65;
+for(const nav of ['reels-nav','chat-nav','summary-nav','saved-nav','liked-nav']){click('#'+nav);assert.notEqual(w.location.search,exploredURL);click('#explore-nav');assert.equal(w.location.search,exploredURL,nav+' must restore every Explore parameter');assert.deepEqual(camera(),exploredCamera,nav+' must preserve the camera');assert.ok(el(`.semantic-company[data-company-id="${exploredCompany}"]`).classList.contains('is-selected'));assert.equal(el('#inspector').scrollTop,91);assert.equal(el('#inspector-content').scrollTop,113);assert.equal(d.querySelector('.topics-panel').scrollTop,65);}
+click('#explore-nav');assert.equal(w.location.search,exploredURL,'Clicking the active Explore tab does not reset it');
+click('#chat-nav');navigate(exploredURL);assert.equal(w.location.search,exploredURL);assert.deepEqual(camera(),exploredCamera,'History navigation to a remembered workspace preserves its camera');
+escape();assert.equal(params().has('group'),false);assert.deepEqual(camera(),priorToGroup,'Restoring Explore also preserves the parent camera for region dismissal');assert.equal(params().get('region'),'Europe');assert.equal(params().get('batch'),'Fall 2026');
+navigate('/?topic=ai&view=list');click('#next-page');click('.company-row');el('#company-list').scrollTop=423;el('#inspector').scrollTop=79;const listURL=w.location.search;click('#chat-nav');click('#explore-nav');assert.equal(w.location.search,listURL);assert.equal(el('#company-list').hidden,false);assert.equal(el('#company-list').scrollTop,423);assert.equal(el('#inspector').scrollTop,79);
+// Explicit company navigation from Chat updates Explore instead of restoring stale selection.
+click('#chat-nav');w.YCAtlasAssistantContext.locate(271);assert.equal(Number(params().get('company')),271);centered(271);const explicitURL=w.location.search;click('#reels-nav');click('#explore-nav');assert.equal(w.location.search,explicitURL);assert.ok(el('.semantic-company.is-selected'));
 navigate('/?topic=defense');
 w.fetch=async url=>({ok:true,json:async()=>structuredClone(url.includes('semantic.json')?{...semanticData,meta:{...semanticData.meta,sourceHash:'stale'}}:dataset)});
 click('#retry');await tick();assert.equal(el('#semantic-notice').hidden,false);click('[data-open-list]');assert.equal(el('#company-list').hidden,false);

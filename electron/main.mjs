@@ -3,12 +3,13 @@ import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {webURL,trustedFrame,assetPath} from './security.mjs';
+import {installAssistant} from './assistant.mjs';
 import {ReelsController} from './reels.mjs';
 import {SnapshotUpdater} from './refresh.mjs';
 const here=path.dirname(fileURLToPath(import.meta.url)),root=path.resolve(here,'..'),dist=path.join(root,'dist');
 protocol.registerSchemesAsPrivileged([{scheme:'atlas',privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true}}]);
 app.setName('YC Atlas');
-let window,reels,updater;let dataset;
+let window,reels,updater,assistant;let dataset;
 const send=message=>{if(window&&!window.isDestroyed()){if(['navigate','search'].includes(message.type))window.webContents.focus();window.webContents.send('atlas:event',message);}};
 const contentTypes={'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2'};
 async function buildSemantics(directory,progress){
@@ -19,10 +20,11 @@ function handle(channel,fn){ipcMain.handle(channel,(event,...args)=>{if(!trusted
 async function createWindow(){
  window=new BrowserWindow({width:1460,height:960,minWidth:960,minHeight:680,title:'YC Atlas',backgroundColor:'#f5f5f3',...(process.platform==='darwin'?{titleBarStyle:'hiddenInset',trafficLightPosition:{x:16,y:19}}:{}),webPreferences:{preload:path.join(here,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
  if(process.platform==='darwin'){const icon=nativeImage.createFromPath(path.join(root,'assets/icon.png'));if(!icon.isEmpty())app.dock.setIcon(icon);}
- reels=new ReelsController(window,{send,openExternal:url=>shell.openExternal(url),lookup:id=>dataset.companies.find(c=>c.id===id)});
+ reels=new ReelsController(window,{prepareView:(contents)=>assistant.selectionMenu(contents,()=>reels.slots.find(s=>s.view.webContents===contents)?.companyId),send,openExternal:url=>shell.openExternal(url),lookup:id=>dataset.companies.find(c=>c.id===id)});
  window.webContents.setWindowOpenHandler(({url})=>{if(webURL(url))shell.openExternal(url);return{action:'deny'};});
  window.webContents.on('will-navigate',(event,url)=>{if(!url.startsWith('atlas://app/')){event.preventDefault();if(webURL(url))shell.openExternal(url);}});
- window.on('closed',()=>{reels?.destroy();window=null;});
+ assistant.selectionMenu(window.webContents);
+ window.on('closed',()=>{assistant.cancel();reels?.destroy();window=null;});
  await window.loadURL('atlas://app/');
 }
 app.whenReady().then(async()=>{
@@ -35,7 +37,8 @@ app.whenReady().then(async()=>{
  ipcMain.on('reel:gesture',(event,direction)=>{if(event.sender===reels.current?.view.webContents&&['next','previous'].includes(direction))send({type:'reel-navigation',direction});});
  ipcMain.on('reel:manual-scroll',event=>{if(event.senderFrame===event.sender.mainFrame)reels.manualScroll(event.sender);});
  const navigate=tab=>send({type:'navigate',tab});
- Menu.setApplicationMenu(Menu.buildFromTemplate([...(process.platform==='darwin'?[{label:'YC Atlas',submenu:[{role:'about'},{type:'separator'},{role:'services'},{type:'separator'},{role:'hide'},{role:'hideOthers'},{type:'separator'},{role:'quit'}]}]:[]),{label:'File',submenu:[{label:'Update snapshot',click:()=>send({type:'update-snapshot'})},{label:'Import library…',click:()=>send({type:'import-library'})},{label:'Export library…',click:()=>send({type:'export-library'})},{type:'separator'},process.platform==='darwin'?{role:'close'}:{role:'quit'}]},{role:'editMenu'},{label:'View',submenu:[{label:'Explore',accelerator:'CmdOrCtrl+1',click:()=>navigate('explore')},{label:'Reels',accelerator:'CmdOrCtrl+2',click:()=>navigate('reels')},{label:'Summary',accelerator:'CmdOrCtrl+3',click:()=>navigate('summary')},{label:'Saved',accelerator:'CmdOrCtrl+4',click:()=>navigate('saved')},{label:'Liked',accelerator:'CmdOrCtrl+5',click:()=>navigate('liked')},{type:'separator'},{label:'Search',accelerator:'CmdOrCtrl+F',click:()=>send({type:'search'})},{role:'togglefullscreen'},...(!app.isPackaged?[{role:'toggleDevTools'}]:[])]},{role:'windowMenu'}]));
+ Menu.setApplicationMenu(Menu.buildFromTemplate([...(process.platform==='darwin'?[{label:'YC Atlas',submenu:[{role:'about'},{type:'separator'},{role:'services'},{type:'separator'},{role:'hide'},{role:'hideOthers'},{type:'separator'},{role:'quit'}]}]:[]),{label:'File',submenu:[{label:'Update snapshot',click:()=>send({type:'update-snapshot'})},{label:'Import library…',click:()=>send({type:'import-library'})},{label:'Export library…',click:()=>send({type:'export-library'})},{type:'separator'},process.platform==='darwin'?{role:'close'}:{role:'quit'}]},{role:'editMenu'},{label:'View',submenu:[{label:'Explore',accelerator:'CmdOrCtrl+1',click:()=>navigate('explore')},{label:'Reels',accelerator:'CmdOrCtrl+2',click:()=>navigate('reels')},{label:'Summary',accelerator:'CmdOrCtrl+3',click:()=>navigate('summary')},{label:'Saved',accelerator:'CmdOrCtrl+4',click:()=>navigate('saved')},{label:'Liked',accelerator:'CmdOrCtrl+5',click:()=>navigate('liked')},{label:'Chat',accelerator:'CmdOrCtrl+6',click:()=>navigate('chat')},{type:'separator'},{label:'Search',accelerator:'CmdOrCtrl+F',click:()=>send({type:'search'})},{role:'togglefullscreen'},...(!app.isPackaged?[{role:'toggleDevTools'}]:[])]},{role:'windowMenu'}]));
+ assistant=installAssistant({handle,ipcMain,app,getWindow:()=>window,trustedFrame,send,getDataset:()=>dataset});
  await createWindow();app.on('activate',()=>{if(!window)createWindow();});
 }).catch(error=>{dialog.showErrorBox('YC Atlas could not start',error.stack||error.message);app.quit();});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit();});

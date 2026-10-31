@@ -24,6 +24,31 @@ let reelsView=null,returnToRegions=false,mapSelectionMotion=null;
 let libraryMenuTarget=null;
 let folderEditing=null,folderAssignCompany=null,undoSaved=null,toastTimer;
 const state = { topic:'all', q:'', batch:[], status:[], region:[], view:'map', page:0, saved:false, company:null, tab:'explore', tag:'', year:'', missing:false, group:null, folder:'all', savedSort:library.sort, compareA:null, compareB:null };
+// Keep each workspace intact when the main navigation changes tabs.
+const tabMemories=new Map();
+const tabKey=value=>value.saved?'saved':value.tab;
+const copyViewState=()=>({...state,batch:[...state.batch],status:[...state.status],region:[...state.region]});
+const workspaceScrolls=['company-list','inspector','inspector-content','topics','folder-list','summary-panel'];
+function rememberTab(){
+ let camera=null;
+ if(state.tab==='explore'&&state.view==='map'&&mapSelection&&!$('map').hasAttribute('hidden')){mapSelection.interrupt();const t=d3.zoomTransform(mapSelection.node()),box=($('map').getAttribute('viewBox')||'').split(' ').map(Number);camera={x:t.x,y:t.y,k:t.k,width:box[2]||$('stage').clientWidth,height:box[3]||$('stage').clientHeight};if(cameraContext)cameras.set(cameraContext,t);}
+ tabMemories.set(tabKey(state),{state:copyViewState(),camera,cameras:new Map(cameras),scrolls:Object.fromEntries(workspaceScrolls.map(id=>[id,$(id)?.scrollTop||0])),topicScroll:document.querySelector('.topics-panel')?.scrollTop||0});
+}
+function restoreTabPosition(memory){
+ if(!memory)return;
+ for(const [id,top]of Object.entries(memory.scrolls))if($(id))$(id).scrollTop=top;
+ document.querySelector('.topics-panel').scrollTop=memory.topicScroll;
+ const c=memory.camera;
+ if(c&&state.view==='map'&&mapSelection&&zoom){if(c.width===$('stage').clientWidth&&c.height===$('stage').clientHeight)mapSelection.interrupt().call(zoom.transform,d3.zoomIdentity.translate(c.x,c.y).scale(c.k));else if(state.company)focusCompanyOnMap(state.company);}
+}
+function switchWorkspace(key,defaults){
+ if(tabKey(state)===key)return;
+ const incoming=tabMemories.get(key);rememberTab();
+ returnToRegions=false;mapSelectionMotion=null;cameraContext=null;cameras.clear();for(const [id,camera]of incoming?.cameras||[])cameras.set(id,camera);
+ Object.assign(state,incoming?incoming.state:{...state,company:null,group:null,page:0,...defaults});
+ for(const field of ['batch','status','region'])state[field]=selectedValues(state[field]);
+ writeURL();render();restoreTabPosition(incoming);
+}
 const regionGroups = [
  {name:'Europe', values:['Europe']},
  {name:'North America', values:['America / Canada']},
@@ -40,7 +65,7 @@ function matchesRegion(c, region) {
 function readURL() {
  const p = new URLSearchParams(location.search);
  Object.assign(state, {topic:p.get('topic') || 'all',q:p.get('q') || '',batch:p.get('batch') || '',status:p.get('status') || '',region:p.get('region') || '',view:p.get('view') === 'list' ? 'list' : 'map',page:Math.max(0,Number(p.get('page')) || 0),saved:p.get('saved') === '1',company:Number(p.get('company')) || null});
- Object.assign(state,{tab:['summary','reels','liked'].includes(p.get('tab'))?p.get('tab'):'explore',tag:p.get('tag')||'',year:p.get('year')||''});
+ Object.assign(state,{tab:['summary','reels','liked','chat'].includes(p.get('tab'))?p.get('tab'):'explore',tag:p.get('tag')||'',year:p.get('year')||''});
  for(const key of ['batch','status','region'])state[key]=selectedValues(p.getAll(key));
  if(state.tab==='reels')readReelURL(p);
  state.compareA=Number(p.get('from'))||null;state.compareB=Number(p.get('to'))||null;
@@ -69,6 +94,7 @@ function writeURL(replace = false) {
  history[replace?'replaceState':'pushState']({},'',location.pathname+(p.size?'?'+p:'') );
 }
 function update(patch, replace = false) {
+ if(tabKey({...state,...patch})!==tabKey(state))rememberTab();
  if(!Object.hasOwn(patch,'group')&&['topic','q','tag','year','saved','tab','missing'].some(key=>Object.hasOwn(patch,key)))state.group=null;
  Object.assign(state,patch);
  for(const key of ['batch','status','region'])state[key]=selectedValues(state[key]);
@@ -109,6 +135,7 @@ function renderTopics() {
 }
 function render() {
  if(!data) return;
+ window.dispatchEvent(new CustomEvent('atlas-view-before-render'));
  clearTimeout(searchTimer);closeCompanySearch();
  $('tooltip').hidden=true;closeLibraryMenu();
  if(state.folder!=='all'&&!library.folder(state.folder)){state.folder='all';writeURL(true);}
@@ -123,12 +150,13 @@ function render() {
  const start=Number.isFinite(perPage)?state.page*perPage:0,end=Number.isFinite(perPage)?Math.min(start+perPage,scope.length):scope.length;
  $('search').value=state.tab==='reels'?reelScope.q:state.q;
  for(const key of ['batch','status','region'])filterControls[key]?.set(state[key]);
- const isSummary=state.tab==='summary',isReels=state.tab==='reels',isLiked=state.tab==='liked';
- $('reel-feed-controls').hidden=!isReels;$('snapshot').hidden=isReels;document.querySelector('.page-heading').classList.toggle('reels-heading',isReels);
+ const isSummary=state.tab==='summary',isReels=state.tab==='reels',isLiked=state.tab==='liked',isChat=state.tab==='chat';
+ $('chat-panel').hidden=!isChat;document.querySelector('.workbench').classList.toggle('chat-mode',isChat);document.querySelector('.page-heading').hidden=isChat;document.querySelector('.page-footer').hidden=isChat;document.querySelector('.search').hidden=isChat;
+ $('reel-feed-controls').hidden=!isReels;$('snapshot').hidden=isReels||isChat;document.querySelector('.page-heading').classList.toggle('reels-heading',isReels);
  $('liked-count').textContent=companies.filter(c=>discovery.likes.has(c.id)).length;
  document.querySelector('.workbench').classList.toggle('reels-mode',isReels);$('reels-panel').hidden=!isReels;
  if(!isReels){reelsView?.leave();closeReelFilterPanel();}
- for(const [id,current] of [['explore-nav',!state.saved&&state.tab==='explore'],['saved-nav',state.saved&&!isSummary],['summary-nav',isSummary],['reels-nav',isReels],['liked-nav',isLiked]]){if(current)$(id).setAttribute('aria-current','page');else $(id).removeAttribute('aria-current');}
+ for(const [id,current] of [['explore-nav',!state.saved&&state.tab==='explore'],['saved-nav',state.saved&&!isSummary],['summary-nav',isSummary],['reels-nav',isReels],['liked-nav',isLiked],['chat-nav',isChat]]){if(current)$(id).setAttribute('aria-current','page');else $(id).removeAttribute('aria-current');}
  $('saved-count').textContent=saved.size;
  document.querySelector('.workbench').classList.toggle('summary-mode',isSummary);
  document.querySelector('.workbench').classList.toggle('saved-mode',state.saved&&!isSummary);
@@ -169,9 +197,10 @@ function render() {
  renderTopics();
  renderSavedWorkspace();
  if(isSummary)renderSummary();
- else if(!isReels&&filtered.length){ if(state.view==='map') renderMap(overview); else renderList(); }
+ else if(!isReels&&!isChat&&filtered.length){ if(state.view==='map') renderMap(overview); else renderList(); }
  renderInspector();
  if(isReels){renderReelControls();reelsView?.enter();}
+ window.dispatchEvent(new CustomEvent('atlas-view',{detail:{tab:state.tab}}));
 }
 function enterTopic(id, cluster) {
  document.querySelector('.topics-panel').classList.remove('is-open');$('mobile-topics').setAttribute('aria-expanded','false');
@@ -436,7 +465,8 @@ function renderInspector() {
  }else if(state.saved){
   $('inspector-content').innerHTML='<h2>Saved companies</h2><p>Select a company to read its details, change its folder, or add a private note.</p><hr class="inspector-rule"><h3>Organize your list</h3><p>Right-click a company, or use its ⋯ button, to move it to a folder or remove it from Saved. Right-click a folder, or use its ⋯ button, to rename or delete it. Moving folders keeps the original save date.</p><p class="inspector-note">Folders and notes are stored on this device. Export the current folder or filtered list as CSV to keep a copy.</p>'; 
  }else{
-  $('inspector-content').innerHTML=`<h2>Company details</h2><p>Select a company to view its description, batch, location, and website.</p><hr class="inspector-rule"><h3>Topics</h3>${['defense','climate','developers'].map(id=>{const t=topics.find(t=>t.id===id);return `<button type="button" class="suggestion" data-topic="${id}"><span>${esc(t.name)}</span><span>${fmt(companies.filter(c=>matches(c,false)&&c.topics.includes(id)).length)}</span></button>`;}).join('')}<hr class="inspector-rule"><h3>Description maps</h3><p class="inspector-note">Within a topic, companies are positioned by description similarity. Group labels summarize recurring terms. Select a group to zoom.</p><button type="button" class="text-button" data-about>Map methodology</button>`;
+  const available=companies.filter(c=>matches(c,false));
+  $('inspector-content').innerHTML=`<h2>Company details</h2><p>Select a company to view its description, batch, location, and website.</p><hr class="inspector-rule"><h3>Topics</h3>${topics.map(t=>`<button type="button" class="suggestion" data-topic="${t.id}"><span>${esc(t.name)}</span><span>${fmt(available.filter(c=>c.topics.includes(t.id)).length)}</span></button>`).join('')}<hr class="inspector-rule"><h3>Description maps</h3><p class="inspector-note">Within a topic, companies are positioned by description similarity. Group labels summarize recurring terms. Select a group to zoom.</p><button type="button" class="text-button" data-about>Map methodology</button>`;
  }
 }
 document.addEventListener('click',e=>{
@@ -499,11 +529,12 @@ $('map-view').onclick=()=>{const id=state.company;update({view:'map',company:id}
 $('description-group').onchange=e=>openSemanticGroup(e.target.value===''?null:Number(e.target.value));
 $('all-groups').onclick=()=>openSemanticGroup(null);
 $('home-crumb').onclick=()=>update({topic:'all',q:'',missing:false});
-$('explore-nav').onclick=()=>update({saved:false,topic:'all',q:'',tab:'explore',tag:'',year:'',missing:false});
-$('saved-nav').onclick=()=>{update({saved:true,view:'list',folder:'all',topic:'all',q:'',batch:[],status:[],region:[],tab:'explore',tag:'',year:'',missing:false});};
-$('reels-nav').onclick=()=>{update({tab:'reels',saved:false,topic:'all',q:'',batch:[],region:[],status:[],tag:'',year:'',missing:false});};
-$('liked-nav').onclick=()=>update({tab:'liked',view:'list',saved:false,topic:'all',q:'',batch:[],region:[],status:[],tag:'',year:'',missing:false});
-$('summary-nav').onclick=()=>{update({tab:'summary',saved:false,topic:'all',q:'',batch:'',tag:'',year:'',missing:false});$('summary-panel').scrollTop=0;};
+$('explore-nav').onclick=()=>switchWorkspace('explore',{saved:false,topic:'all',q:'',tab:'explore',tag:'',year:'',missing:false});
+$('saved-nav').onclick=()=>switchWorkspace('saved',{saved:true,view:'list',folder:'all',topic:'all',q:'',batch:[],status:[],region:[],tab:'explore',tag:'',year:'',missing:false});
+$('reels-nav').onclick=()=>switchWorkspace('reels',{tab:'reels',saved:false,topic:'all',q:'',batch:[],region:[],status:[],tag:'',year:'',missing:false});
+$('liked-nav').onclick=()=>switchWorkspace('liked',{tab:'liked',view:'list',saved:false,topic:'all',q:'',batch:[],region:[],status:[],tag:'',year:'',missing:false});
+$('chat-nav').onclick=()=>{const company=window.YCAtlasAssistantContext.selected();if(company)window.YCAtlasAssistantContext.chatCompany=company;switchWorkspace('chat',{tab:'chat',saved:false,q:'',topic:'all',tag:'',year:'',missing:false});};
+$('summary-nav').onclick=()=>switchWorkspace('summary',{tab:'summary',saved:false,topic:'all',q:'',batch:[],tag:'',year:'',missing:false});
 $('clear-filters').onclick=()=>update({q:'',batch:'',status:'',region:'',tag:'',year:'',missing:false});
 $('reset-empty').onclick=()=>{if(state.saved&&saved.size){const folderHasCompanies=companies.some(c=>saved.has(c.id)&&(state.folder==='all'||library.record(c.id)?.folderId===state.folder));update({topic:'all',q:'',batch:[],status:[],region:[],tag:'',year:'',missing:false,...(!folderHasCompanies?{folder:'all'}:{})});}else update({topic:'all',q:'',batch:[],status:[],region:[],saved:false,tag:'',year:'',missing:false});};
 $('prev-page').onclick=()=>update({page:Math.max(0,state.page-1)});$('next-page').onclick=()=>update({page:state.page+1});
@@ -512,8 +543,8 @@ function adjustZoom(scale){if(zoom&&mapSelection){if(reduced)mapSelection.call(z
 $('zoom-in').onclick=()=>adjustZoom(1.4);$('zoom-out').onclick=()=>adjustZoom(1/1.4);$('zoom-reset').onclick=()=>{if(zoom&&mapSelection){if(semanticViewport?.activeNodes.length)mapSelection.call(zoom.transform,fitTransform(semanticViewport.activeNodes,semanticViewport.w,semanticViewport.h));else mapSelection.call(zoom.transform,overviewFit||d3.zoomIdentity);}};
 $('about').onclick=()=>$('about-dialog').showModal();$('close-about').onclick=()=>$('about-dialog').close();
 $('about-dialog').addEventListener('click',e=>{if(e.target===$('about-dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();}});
-document.addEventListener('keydown',e=>{if(e.key==='/'&&!document.querySelector('dialog[open]')&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){e.preventDefault();$('search').focus();}if(e.key==='Escape'&&!document.querySelector('dialog[open]')){const popups=[...document.querySelectorAll('.filter-dropdown[open],.map-settings[open]')];if(popups.length){popups.forEach(p=>p.open=false);return;}if(state.tab==='reels'&&!$('reel-filter-panel').hidden){closeReelFilterPanel();$('reel-filter-toggle').focus();return;}if(state.group!==null)clearSemanticGroup();else if(state.company)closeCompany();document.querySelector('.topics-panel').classList.remove('is-open');$('mobile-topics').setAttribute('aria-expanded','false');}});
-window.addEventListener('popstate',()=>{readURL();render();if(state.company)focusCompanyOnMap(state.company);});
+document.addEventListener('keydown',e=>{if(e.key==='/'&&!document.querySelector('dialog[open]')&&!['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)){e.preventDefault();(state.tab==='chat'?$('assistant-prompt'):$('search')).focus();}if(e.key==='Escape'&&!document.querySelector('dialog[open]')){const popups=[...document.querySelectorAll('.filter-dropdown[open],.map-settings[open]')];if(popups.length){popups.forEach(p=>p.open=false);return;}if(state.tab==='reels'&&!$('reel-filter-panel').hidden){closeReelFilterPanel();$('reel-filter-toggle').focus();return;}if(state.group!==null)clearSemanticGroup();else if(state.company)closeCompany();document.querySelector('.topics-panel').classList.remove('is-open');$('mobile-topics').setAttribute('aria-expanded','false');}});
+window.addEventListener('popstate',()=>{const previous=tabKey(state);rememberTab();readURL();const incoming=tabMemories.get(tabKey(state)),restore=incoming&&JSON.stringify(incoming.state)===JSON.stringify(copyViewState());if(restore||previous!==tabKey(state)){returnToRegions=false;mapSelectionMotion=null;cameraContext=null;cameras.clear();if(restore)for(const [id,camera]of incoming.cameras)cameras.set(id,camera);}render();if(restore)restoreTabPosition(incoming);else if(state.company)focusCompanyOnMap(state.company);});
 let resizeTimer;new ResizeObserver(()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(()=>{if(data&&state.view==='map'&&state.tab==='explore'&&$('map').getAttribute('viewBox')!==`0 0 ${$('stage').clientWidth} ${$('stage').clientHeight}`)render();},120);}).observe($('stage'));
 async function load(){
  $('data-error').hidden=true;$('loading').hidden=false;$('stage').setAttribute('aria-busy','true');
@@ -681,7 +712,7 @@ $('library-menu').onclick=e=>{
  }
 };
 document.addEventListener('contextmenu',e=>{
- if(document.querySelector('dialog[open]'))return;
+ if(document.querySelector('dialog[open]')||window.getSelection()?.toString().trim())return;
  const target=libraryContextTarget(e.target);if(!target)return;
  e.preventDefault();openLibraryMenu(target.type,target.id,target.anchor,{x:e.clientX,y:e.clientY});
 });
@@ -742,7 +773,7 @@ if(window.atlasDesktop){
   if(event.type==='reel-playback'&&reelsView)reelsView.setPaused(event.paused,false);
   if(event.type==='snapshot-status')snapshotStatus(event);
   if(event.type==='navigate')$(`${event.tab}-nav`)?.click();
-  if(event.type==='search')$('search').focus();
+  if(event.type==='search'){if(state.tab==='chat')window.dispatchEvent(new Event('atlas-chat-search'));else $('search').focus();}
   if(event.type==='update-snapshot')$('refresh-snapshot').click();
   if(event.type==='import-library')importLibrary();
   if(event.type==='export-library')exportLibrary().catch(error=>notifySaved(error.message));
@@ -791,5 +822,27 @@ $('reel-cancel-filters').onclick=closeReelFilterPanel;$('reel-apply-filters').on
 for(const [id,field]of [['reel-tag','tag'],['reel-year','year'],['reel-group','group']])$(id).onchange=event=>{reelDraft=normalizeReelScope({...reelDraft,[field]:field==='group'?(event.target.value===''?null:Number(event.target.value)):event.target.value});renderReelDraft();};
 document.addEventListener('click',event=>{if(event.target.closest('[data-clear-reel-filters]'))applyReelScope(emptyReelScope());});
 
+window.YCAtlasAssistantContext={
+ company:id=>companies.find(c=>c.id===id),selected:()=>state.tab==='chat'?window.YCAtlasAssistantContext.chatCompany:state.tab==='reels'?reelsView?.current?.company:companies.find(c=>c.id===state.company),view:()=>({snapshot:data?.meta.fetchedAt,tab:state.tab,topic:state.topic,batch:state.batch,region:state.region,status:state.status}),locate:locateSearchCompany,
+ async execute(name,args,cap={}){
+  const compact=c=>({id:c.id,name:c.name,summary:c.summary.slice(0,350),batch:c.batch,status:c.status,topics:c.topics,regions:c.regions,reference:`[[company:${c.id}]]`});
+  const requireCompany=id=>{if(!Number.isInteger(id))throw new Error('Invalid company ID');const company=companies.find(c=>c.id===id);if(!company)throw new Error('Company not found');return company;};
+  if(!args||typeof args!=='object'||Array.isArray(args))throw new Error('Invalid arguments');
+  if(['get_catalog','search_companies','get_company','find_similar_companies'].includes(name)&&!cap.search)throw new Error('Search capability disabled');
+  if((['get_interests','get_saved_companies'].includes(name)||name==='list_folders'&&!cap.organize)&&!cap.library)throw new Error('Library capability disabled');
+  if(['create_folder','save_companies'].includes(name)&&!cap.organize)throw new Error('Organizing capability disabled');
+  if(name==='get_catalog')return{topics:topics.map(t=>({id:t.id,name:t.name})),regions:regionGroups.map(g=>g.name),batches:[...new Set(companies.map(c=>c.batch))],statuses:[...new Set(companies.map(c=>c.status))]};
+  if(name==='search_companies'){for(const key of ['query','topic','region','batch','status','year'])if(args[key]!==undefined&&(typeof args[key]!=='string'||args[key].length>300))throw new Error('Invalid '+key);const topic=topics.find(t=>t.id===args.topic||t.name.toLowerCase()===args.topic?.toLowerCase())?.id||args.topic||'all',facets={topic,q:args.query||'',batch:args.batch||[],status:args.status||[],region:args.region||[],year:args.year||''};const matched=companies.filter(c=>YCControls.matchesFacets(c,facets,{matchesRegion,yearOf:YCInsights.yearOf})),offset=Math.max(0,Math.min(companies.length,Math.floor(Number(args.offset)||0))),limit=Math.max(1,Math.min(30,Math.floor(Number(args.limit)||15)));return{total:matched.length,offset,next_offset:offset+limit<matched.length?offset+limit:null,companies:matched.slice(offset,offset+limit).map(compact)};}
+  if(name==='find_similar_companies'){requireCompany(args.id);const limit=Math.max(1,Math.min(20,Math.floor(Number(args.limit)||8)));return{companies:(semantic?.layouts.all?.neighbors[args.id]||[]).slice(0,limit).map(id=>companies.find(c=>c.id===id)).filter(Boolean).map(compact)};}
+  if(name==='get_company'){const c=requireCompany(args.id);return{...compact(c),description:c.description.slice(0,7000),tags:c.tags,location:c.location,website:c.website,yc:`https://www.ycombinator.com/companies/${c.slug}`,similar:(semantic?.layouts.all?.neighbors[c.id]||[]).slice(0,8)};}
+  if(name==='get_interests')return{liked_total:discovery.likes.size,saved_total:library.items.size,liked:companies.filter(c=>discovery.likes.has(c.id)).slice(-30).map(compact),saved:[...library.items.values()].filter(r=>companies.some(c=>c.id===r.id)).slice(-25).map(record=>({company:compact(requireCompany(record.id)),folderId:record.folderId,...(cap.notes?{note:record.note.slice(0,700)}:{})})),folders:library.folders};
+  if(name==='get_saved_companies'){if(args.folder_id!==undefined&&typeof args.folder_id!=='string')throw new Error('Invalid folder ID');const records=[...library.items.values()].filter(r=>(!args.folder_id||r.folderId===args.folder_id)&&companies.some(c=>c.id===r.id)),offset=Math.max(0,Math.floor(Number(args.offset)||0)),limit=Math.max(1,Math.min(25,Math.floor(Number(args.limit)||15)));return{total:records.length,next_offset:offset+limit<records.length?offset+limit:null,companies:records.slice(offset,offset+limit).map(r=>({...compact(requireCompany(r.id)),folder_id:r.folderId,...(cap.notes?{note:r.note.slice(0,1000)}:{})}))};}
+  if(name==='list_folders')return{folders:library.folders.map(f=>({...f,company_ids:[...library.items.values()].filter(r=>r.folderId===f.id).map(r=>r.id)}))};
+  if(name==='show_company'){if(!cap.navigate)throw new Error('Navigation capability disabled');const c=requireCompany(args.id);locateSearchCompany(c.id);return{opened:compact(c)};}
+  if(name==='create_folder'){if(typeof args.name!=='string')throw new Error('Folder name required');const folder=library.folders.find(f=>f.name.toLowerCase()===args.name.trim().toLowerCase())||library.createFolder(args.name);if(library.storageError)throw new Error('Folder could not be persisted');refreshSaved();return{folder};}
+  if(name==='save_companies'){if(!Array.isArray(args.company_ids)||args.company_ids.length>100||!args.company_ids.length)throw new Error('Provide 1–100 company IDs');args.company_ids.forEach(requireCompany);if(!library.folder(args.folder_id))throw new Error('Folder not found');for(const id of new Set(args.company_ids))library.save(id,args.folder_id);if(args.move_existing===true)library.move(args.company_ids,args.folder_id);if(library.storageError)throw new Error('Changes could not be persisted');refreshSaved();return{saved:args.company_ids.map(id=>({id,folder_id:library.record(id).folderId})),folder:library.folder(args.folder_id)};}
+  throw new Error('Unknown Atlas tool');
+ }
+};
 $('retry').onclick=load;readURL();load();
 

@@ -5,8 +5,8 @@
   "description": "A macOS and Linux company atlas with live Chromium website reels",
   "scripts": {
     "dev": "electron .",
-    "check": "node --check dist/app.js && node --check dist/insights.js && node --check dist/layouts.js && node --check dist/controls.js && node --check dist/saved.js && node --check scripts/build-semantics.mjs && node --check electron/main.mjs && node --check electron/preload.cjs && node --check electron/reels.mjs && node --check electron/directory.mjs && node --check electron/refresh.mjs && node --check dist/discovery.js && node --check dist/reels-view.js && node --check electron/smoke.mjs && node --check electron/scroll.mjs && node --check dist/environment.js && node --check electron/reels-core.mjs && node --check electron/guest-preload.cjs",
-    "test": "node scripts/check-data.mjs && node scripts/check-semantics.mjs && node scripts/test-interactions.mjs && node scripts/test-saved.mjs && node scripts/test-desktop.mjs && node scripts/test-reels-pool.mjs && node scripts/test-motion.mjs && node scripts/test-reel-filters.mjs",
+    "check": "node --check dist/app.js && node --check dist/insights.js && node --check dist/layouts.js && node --check dist/controls.js && node --check dist/saved.js && node --check scripts/build-semantics.mjs && node --check electron/main.mjs && node --check electron/preload.cjs && node --check electron/reels.mjs && node --check electron/directory.mjs && node --check electron/refresh.mjs && node --check dist/discovery.js && node --check dist/reels-view.js && node --check electron/smoke.mjs && node --check electron/scroll.mjs && node --check dist/environment.js && node --check electron/reels-core.mjs && node --check electron/guest-preload.cjs && node --check dist/assistant.js && node --check electron/assistant.mjs && node --check electron/assistant-core.mjs && node --check electron/usage.mjs && node --check electron/usage-core.mjs && node --check dist/usage.js && node --check electron/codex-client.mjs && node --check electron/codex-runtime.mjs",
+    "test": "node scripts/check-data.mjs && node scripts/check-semantics.mjs && node scripts/test-interactions.mjs && node scripts/test-saved.mjs && node scripts/test-desktop.mjs && node scripts/test-reels-pool.mjs && node scripts/test-motion.mjs && node scripts/test-reel-filters.mjs && node scripts/test-assistant.mjs && node scripts/test-usage.mjs && node scripts/test-codex.mjs && node scripts/test-codex-ui.mjs && node scripts/test-chat-position.mjs",
     "build:semantic": "node scripts/build-semantics.mjs",
     "start": "electron .",
     "web": "node scripts/serve.mjs",
@@ -14,11 +14,11 @@
     "dist:mac": "electron-builder --mac dmg zip --config.electronDist=node_modules/electron/dist",
     "dist:linux": "electron-builder --linux AppImage deb",
     "smoke:desktop": "electron electron/smoke.mjs",
-    "prepackage:mac": "node scripts/prepare-preload.mjs && node scripts/ensure-electron.cjs",
-    "predist:mac": "node scripts/prepare-preload.mjs && node scripts/ensure-electron.cjs",
-    "prestart": "node scripts/prepare-preload.mjs",
-    "predev": "node scripts/prepare-preload.mjs",
-    "predist:linux": "node scripts/prepare-preload.mjs",
+    "prepackage:mac": "node scripts/prepare-codex.mjs && node scripts/prepare-preload.mjs && node scripts/ensure-electron.cjs",
+    "predist:mac": "node scripts/prepare-codex.mjs && node scripts/prepare-preload.mjs && node scripts/ensure-electron.cjs",
+    "prestart": "node scripts/prepare-codex.mjs && node scripts/prepare-preload.mjs",
+    "predev": "node scripts/prepare-codex.mjs && node scripts/prepare-preload.mjs",
+    "predist:linux": "node scripts/prepare-codex.mjs && node scripts/prepare-preload.mjs",
     "presmoke:desktop": "node scripts/prepare-preload.mjs"
   },
   "devDependencies": {
@@ -35,8 +35,11 @@
   "license": "UNLICENSED",
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",
-    "umap-js": "^1.4.0",
-    "ml-kmeans": "^7.0.1"
+    "@openai/codex": "0.164.0",
+    "dompurify": "^3.4.17",
+    "marked": "^18.1.2",
+    "ml-kmeans": "^7.0.1",
+    "umap-js": "^1.4.0"
   },
   "build": {
     "extends": "./electron-builder.config.cjs"

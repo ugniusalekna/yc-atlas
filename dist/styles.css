@@ -127,8 +127,8 @@ button svg, .source-link svg, .search svg { fill: none; stroke: currentColor; st
 .detail-source { display: inline-flex; align-items: center; gap: var(--space-xs); margin-top: var(--space-lg); font-size: 12px; }
 .topic-stat { font-size: 38px; letter-spacing: -1.5px; margin-top: var(--space-lg); font-variant-numeric: tabular-nums; }
 .topic-stat span { display: block; color: var(--color-muted); font-size: 12px; letter-spacing: normal; }
-.related-company { display: flex; gap: var(--space-sm); align-items: center; width: 100%; padding: var(--space-sm) 0; text-align: left; }
-.related-company img { height: 32px; width: 32px; border-radius: 50%; object-fit: contain; background: var(--color-logo-bg); }
+.related-company { min-width: 0; white-space: normal; display: flex; gap: var(--space-sm); align-items: center; width: 100%; padding: var(--space-sm) 0; text-align: left; }
+.related-company img { flex-shrink: 0; height: 32px; width: 32px; border-radius: 50%; object-fit: contain; background: var(--color-logo-bg); }
 .related-company span { display: block; font-size: 12px; }
 .related-company small { display: block; color: var(--color-muted); font-size: 10px; margin-top: var(--space-3xs); }
 .stage-message { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--space-lg); gap: var(--space-md); text-align: center; background: var(--color-map); }
@@ -244,7 +244,8 @@ dialog .close-button { float: right; }
 .semantic-group-item { display: flex; align-items: center; justify-content: space-between; gap: var(--space-sm); width: 100%; white-space: normal; text-align: left; padding: var(--space-sm) 0; border-bottom: 1px solid var(--color-rule); font-size: 12px; line-height: 1.5; }
 .semantic-group-item span:last-child { font-size: 11px; color: var(--color-muted); font-variant-numeric: tabular-nums; }
 .related-company > span { min-width: 0; }
-.related-company small { overflow-wrap: break-word; }
+.related-company > span:last-child { flex: 1; overflow-wrap: anywhere; }
+.related-company small { white-space: normal; overflow-wrap: anywhere; }
 .unplaced-descriptions { cursor: pointer; }
 .unplaced-descriptions text { fill: var(--color-muted); font-size: 11px; }
 .unplaced-descriptions:hover text, .unplaced-descriptions:focus-visible text { fill: var(--color-focus); text-decoration: underline; text-decoration-thickness: 2px; }
@@ -382,7 +383,7 @@ textarea:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 
 #folder-name { width: 100%; min-height: 40px; border: 1px solid var(--color-rule-2); border-radius: 5px; padding: var(--space-sm); background: var(--color-cotton); color: var(--color-ink); font-size: 14px; }
 #folder-error { color: var(--color-accent-2); font-size: 12px; }
 .folder-dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-sm); margin-top: var(--space-lg); }
-.saved-toast { position: fixed; z-index: var(--z-toast); bottom: 24px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: var(--space-sm); max-width: min(560px, calc(100% - 32px)); padding: var(--space-sm) var(--space-md); background: var(--color-tooltip); color: var(--color-tooltip-ink); border-radius: 7px; box-shadow: var(--shadow-bubble); font-size: 12px; }
+.saved-toast { position: fixed; z-index: var(--z-toast); top: 80px; right: 20px; display: flex; align-items: center; gap: var(--space-sm); max-width: min(340px, calc(100% - 40px)); padding: var(--space-sm) var(--space-md); background: var(--color-tooltip); color: var(--color-tooltip-ink); border-radius: 7px; box-shadow: var(--shadow-bubble); font-size: 12px; }
 .saved-toast span { line-height: 1.5; }
 .saved-toast button { color: var(--color-tooltip-ink); font-size: 12px; min-height: 32px; }
 #undo-saved { text-decoration: underline; text-underline-offset: 3px; }
