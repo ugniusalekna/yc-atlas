@@ -151,7 +151,7 @@ function render() {
  $('search').value=state.tab==='reels'?reelScope.q:state.q;
  for(const key of ['batch','status','region'])filterControls[key]?.set(state[key]);
  const isSummary=state.tab==='summary',isReels=state.tab==='reels',isLiked=state.tab==='liked',isChat=state.tab==='chat';
- $('chat-panel').hidden=!isChat;document.querySelector('.workbench').classList.toggle('chat-mode',isChat);document.querySelector('.page-heading').hidden=isChat;document.querySelector('.page-footer').hidden=false;document.querySelector('.search').hidden=isChat;
+ $('chat-panel').hidden=!isChat;document.querySelector('.workbench').classList.toggle('chat-mode',isChat);document.querySelector('.page-heading').hidden=isChat;document.querySelector('.page-footer').hidden=false;document.querySelector('.search').hidden=false;$('search').hidden=isChat;document.querySelector('.search').classList.toggle('command-only',isChat);
  $('reel-feed-controls').hidden=!isReels;$('snapshot').hidden=isReels||isChat;document.querySelector('.page-heading').classList.toggle('reels-heading',isReels);
  $('liked-count').textContent=companies.filter(c=>discovery.likes.has(c.id)).length;
  document.querySelector('.workbench').classList.toggle('reels-mode',isReels);$('reels-panel').hidden=!isReels;
@@ -164,13 +164,13 @@ function render() {
  $('search').setAttribute('role',isCompanySearch()?'combobox':'searchbox');$('search').setAttribute('aria-autocomplete',isCompanySearch()?'list':'none');
  $('search').placeholder=isCompanySearch()?'Find a company…':isReels?'Search within Reels…':state.saved?'Search saved companies or notes…':'Search companies, ideas, or tags…';$('search').setAttribute('aria-label',isCompanySearch()?'Find a company on the map':isReels?'Search within Reels':state.saved?'Search saved companies and notes':'Search companies, ideas, or tags');
  $('summary-panel').hidden=!isSummary;
- document.querySelector('.view-toggle').hidden=isSummary;
+ document.querySelector('.view-toggle').hidden=isSummary||isChat||isReels;$('page-view-controls').hidden=isSummary||isChat||isReels;$('summary-controls').hidden=!isSummary;document.querySelector('.breadcrumbs').hidden=isSummary||state.saved;
  $('batch-filter').hidden=isSummary;
  $('map-settings').hidden=isSummary||state.view!=='map';
  $('map-limit').value=String(mapSettings.limit);$('map-logo-size').value=mapSettings.logoSize;$('map-logo-output').textContent=`${mapSettings.logoSize*2} px`;
  const topic=topics.find(t=>t.id===state.topic);
- document.querySelector('.page-heading h1').textContent=isSummary?'Summary':isReels?'Reels':isLiked?'Liked companies':state.saved?'Saved companies':topic?.name||'Companies';
- $('home-crumb').textContent=isSummary?'Directory summary':state.saved?'Saved companies':'All companies'; $('topic-crumb').textContent=isSummary?'':topic?.name || '';
+ document.querySelector('.page-heading h1').textContent=isSummary?'Summary':isReels?'Reels':isLiked?'Liked companies':state.saved?'Saved companies':'Companies';$('snapshot').textContent=`${fmt(filtered.length)} companies`;
+ $('home-crumb').textContent=isSummary?'Directory summary':state.saved?'Saved companies':isLiked?'All liked':'All companies'; $('topic-crumb').textContent=isSummary?'':topic?.name || '';
  $('mobile-topics').innerHTML=`${esc(topic?.name || 'All topics')} <span class="dropdown-chevron" aria-hidden="true"></span>`;
  const groupLabel=state.group===null?'':activeSemanticLayout()?.clusters.find(g=>g.id===state.group)?.label||'';
  $('clear-filters').hidden=!(state.q||state.batch.length||state.status.length||state.region.length||state.tag||state.year||state.missing||groupLabel);
@@ -347,7 +347,6 @@ function renderSemanticMap(content,w,h){
  $('semantic-navigation').hidden=false;
  $('description-group').innerHTML='<option value="">Select a description group</option>'+regions.filter(g=>g.visibleCount).map(g=>`<option value="${g.id}">${esc(g.label)} (${fmt(g.visibleCount)})</option>`).join('');
  $('description-group').value=state.group===null?'':String(state.group);
- $('all-groups').hidden=state.group===null;
  content.attr('data-region-view',active?'expanded':'collapsed');
  const shapeGroups=content.append('g').attr('class','semantic-region-layer').selectAll('.semantic-region').data(regions).join('g').attr('class',g=>`semantic-region${active&&g.id!==active.id?' is-context':''}${g.id===state.group?' is-active':''}${g.visibleCount?'':' is-empty'}`).attr('data-group-id',g=>g.id).attr('aria-label',g=>`${g.label}, ${fmt(g.visibleCount)} matching companies. Show companies.`).style('--region-fill',g=>`var(--color-region-${g.id%6+1})`);
  shapeGroups.append('path').attr('class','semantic-region-boundary').attr('d',g=>g.path);
@@ -408,7 +407,8 @@ function renderSummary() {
  const trendRows=rows=>rows.map(s=>`<div class="trend-row"><button type="button" class="trend-name" data-trend="${esc(s.tag)}" data-year="${summary.currentYear}">${esc(s.tag)}<small>${fmt(s.currentCount)} companies in ${summary.currentYear}</small></button><span class="trend-comparison"><span class="trend-bars" aria-hidden="true"><span class="trend-bar previous" style="--share:${s.previousShare}%"></span><span class="trend-bar current" style="--share:${s.currentShare}%"></span></span><span class="trend-year-values"><button type="button" data-trend="${esc(s.tag)}" data-year="${summary.previousYear}" aria-label="Explore ${esc(s.tag)} in ${summary.previousYear}: ${s.previousCount} companies" ${s.previousCount?'':'disabled'}>${fmt(s.previousCount)} / ${pct(s.previousShare)}</button><button type="button" data-trend="${esc(s.tag)}" data-year="${summary.currentYear}" aria-label="Explore ${esc(s.tag)} in ${summary.currentYear}: ${s.currentCount} companies" ${s.currentCount?'':'disabled'}>${fmt(s.currentCount)} / ${pct(s.currentShare)}</button></span></span><strong class="trend-change">${pp(s.change)}</strong></div>`).join('');
  const mainSignal=summary.rising[0];
  const intro=summary.dominant?`${esc(summary.dominant.tag)} is the most common tag in the ${summary.currentYear} cohort at ${pct(summary.dominant.currentShare)} of tagged companies.${mainSignal?` ${esc(mainSignal.tag)} shows the largest increase in share.`:''}`:'There are no tagged companies in the recent cohort for this view.';
- $('summary-panel').innerHTML=`<div class="summary-year-controls"><label>From <select id="compare-from">${yearOptions(summary.previousYear)}</select></label><button type="button" id="swap-years" aria-label="Swap comparison years">⇄</button><label>To <select id="compare-to">${yearOptions(summary.currentYear)}</select></label></div><div class="summary-totals"><span><strong>${fmt(summary.previousTotal)}</strong>${summary.previousYear} companies<small>${fmt(summary.previousTagged)} tagged</small></span><span><strong>${fmt(summary.currentTotal)}</strong>${summary.currentYear} companies<small>${fmt(summary.currentTagged)} tagged</small></span></div><div class="summary-heading"><h2>Cohort comparison</h2><p>${intro}</p><span class="summary-scope">${esc(state.region.length?state.region.join(', '):'All regions')}${state.status.length?' / '+esc(state.status.join(', ')):''} / ${fmt(summary.total)} companies</span></div>
+ $('summary-controls').innerHTML=`<div class="summary-year-controls"><label>From <select id="compare-from">${yearOptions(summary.previousYear)}</select></label><button type="button" id="swap-years" class="chat-icon-button" aria-label="Swap comparison years" title="Swap years"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 6h14m-4-3 4 3-4 3M17 14H3m4-3-4 3 4 3"/></svg></button><label>To <select id="compare-to">${yearOptions(summary.currentYear)}</select></label></div>`;
+ $('summary-panel').innerHTML=`<div class="summary-totals"><span><strong>${fmt(summary.previousTotal)}</strong>${summary.previousYear} companies<small>${fmt(summary.previousTagged)} tagged</small></span><span><strong>${fmt(summary.currentTotal)}</strong>${summary.currentYear} companies<small>${fmt(summary.currentTagged)} tagged</small></span></div><div class="summary-heading"><h2>Cohort comparison</h2><p>${intro}</p><span class="summary-scope">${esc(state.region.length?state.region.join(', '):'All regions')}${state.status.length?' / '+esc(state.status.join(', ')):''} / ${fmt(summary.total)} companies</span></div>
  <section class="summary-section" aria-labelledby="rising-title"><div class="summary-section-heading"><div><h3 id="rising-title">Gaining ground</h3><p>Tags with the biggest increases in cohort share.</p></div><span class="cohort-legend"><span class="legend-previous">${summary.previousYear||'Earlier'}</span><span class="legend-current">${summary.currentYear||'Recent'}</span></span></div>
  ${summary.rising.length?`<div class="trend-head" aria-hidden="true"><span>Idea</span><span>${summary.previousYear} / ${summary.currentYear}</span><span>Change</span></div><div class="trend-table">${trendRows(summary.rising)}</div>`:`<div class="summary-empty">${summary.comparable?'No tag meets the minimum sample for a rising signal in this view.':'Both comparison years need tagged companies to calculate a trend.'}<button type="button" class="text-button" data-reset-summary>Show all regions and statuses</button></div>`}
  <p class="summary-method">Share of tagged companies: ${fmt(summary.previousTagged)} of ${fmt(summary.previousTotal)} records in ${summary.previousYear||'the earlier cohort'}; ${fmt(summary.currentTagged)} of ${fmt(summary.currentTotal)} in ${summary.currentYear||'the recent cohort'}. ${summary.smallSample?'Small sample: fewer than 30 tagged companies in at least one year. ':''}Tags overlap. The latest intake may be incomplete.</p></section>
@@ -452,7 +452,7 @@ function selectCompany(id) {
 }
 function closeCompany(){state.company=null;writeURL();renderInspector();if(lastFocus?.isConnected)lastFocus.focus({preventScroll:true});}
 function renderInspector() {
- const c=companies.find(c=>c.id===state.company),t=topics.find(t=>t.id===state.topic);
+ const c=companies.find(c=>c.id===state.company),t=topics.find(t=>t.id===state.topic),panel=$('inspector-content'),previous=panel.dataset.companyId||'';panel.dataset.companyId=c?String(c.id):'';
  $('inspector').classList.toggle('has-company',Boolean(c));
  if(c){
   $('inspector-content').innerHTML=`<div class="detail-top"><div class="detail-logo">${logo(c)}</div><button type="button" class="close-button" id="close-inspector" aria-label="Close company details">×</button></div><h2>${esc(c.name)}</h2><p class="company-summary">${esc(c.summary || 'Explore this company on YC.')}</p>${YCReels.companyActions({company:c,liked:discovery.likes.has(c.id),saved:library.has(c.id),escape:esc,context:'explore'})}${savedCompanyHTML(c)}<hr class="inspector-rule"><dl class="metadata"><dt>YC batch</dt><dd>${esc(c.batch || 'Not listed')}</dd><dt>Status</dt><dd>${esc(c.status || 'Not listed')}</dd>${c.location?`<dt>Based in</dt><dd>${esc(c.location)}</dd>`:''}${Number.isFinite(c.team)&&c.team>0?`<dt>Team size</dt><dd>${fmt(c.team)}</dd>`:''}<dt>Topics</dt><dd>${esc(topicNames(c).join(', '))}</dd><dt>Description group</dt><dd>${esc(descriptionGroup(c)?.label||'Not assigned')}</dd><dt>Geographic region</dt><dd>${esc(companyRegions(c).join(', ')||'Not listed')}</dd><dt>YC industry</dt><dd>${esc(c.industry)}</dd>${c.hiring?'<dt>Hiring</dt><dd>Yes, per YC</dd>':''}</dl>${similarDescriptionsHTML(c)}${c.tags.length?`<hr class="inspector-rule"><h3>YC tags</h3><div class="tags">${c.tags.map(tag=>`<button type="button" class="tag" data-search="${esc(tag)}">${esc(tag)}</button>`).join('')}</div>`:''}${c.description?`<hr class="inspector-rule"><h3>In their words</h3><p class="long-description">${esc(c.description)}</p>`:''}<a class="detail-source" href="https://www.ycombinator.com/companies/${encodeURIComponent(c.slug)}" target="_blank" rel="noopener noreferrer">View profile on YC <span aria-hidden="true">↗</span></a><p class="inspector-note">Directory snapshot. Details may have changed.</p>`;
@@ -468,9 +468,10 @@ function renderInspector() {
   const available=companies.filter(c=>matches(c,false));
   $('inspector-content').innerHTML=`<h2>Company details</h2><p>Select a company to view its description, batch, location, and website.</p><hr class="inspector-rule"><h3>Topics</h3>${topics.map(t=>`<button type="button" class="suggestion" data-topic="${t.id}"><span>${esc(t.name)}</span><span>${fmt(available.filter(c=>c.topics.includes(t.id)).length)}</span></button>`).join('')}<hr class="inspector-rule"><h3>Description maps</h3><p class="inspector-note">Within a topic, companies are positioned by description similarity. Group labels summarize recurring terms. Select a group to zoom.</p><button type="button" class="text-button" data-about>Map methodology</button>`;
  }
+ if(panel.dataset.companyId!==previous){if(c)$('inspector').scrollTop=0;window.YCAtlasExperience?.reveal(panel,Boolean(c));}
 }
 document.addEventListener('click',e=>{
- if(e.target.id==='swap-years'){update({compareA:state.compareB,compareB:state.compareA});return;}
+ if(e.target.closest('#swap-years')){update({compareA:state.compareB,compareB:state.compareA});return;}
  const like=e.target.closest('[data-like]');if(like){discovery.toggle(Number(like.dataset.like));render();return;}
  const companyMenu=e.target.closest('[data-company-menu]');if(companyMenu){openLibraryMenu('company',Number(companyMenu.dataset.companyMenu),companyMenu);return;}
  const folderMenu=e.target.closest('[data-folder-menu]');if(folderMenu){openLibraryMenu('folder',folderMenu.dataset.folderMenu,folderMenu);return;}
@@ -527,7 +528,6 @@ $('company-search-results').addEventListener('click',event=>{const result=event.
 document.addEventListener('click',event=>{if(!$('company-search-popup').hidden&&!event.target.closest('.search')){closeCompanySearch();event.__dismissedPopup=true;}},true);
 $('map-view').onclick=()=>{const id=state.company;update({view:'map',company:id});if(id)selectCompany(id);};$('list-view').onclick=()=>update({view:'list'});
 $('description-group').onchange=e=>openSemanticGroup(e.target.value===''?null:Number(e.target.value));
-$('all-groups').onclick=()=>openSemanticGroup(null);
 $('home-crumb').onclick=()=>update({topic:'all',q:'',missing:false});
 $('explore-nav').onclick=()=>switchWorkspace('explore',{saved:false,topic:'all',q:'',tab:'explore',tag:'',year:'',missing:false});
 $('saved-nav').onclick=()=>switchWorkspace('saved',{saved:true,view:'list',folder:'all',topic:'all',q:'',batch:[],status:[],region:[],tab:'explore',tag:'',year:'',missing:false});
@@ -584,7 +584,8 @@ function renderSavedWorkspace(){
  const rows=companies.filter(c=>saved.has(c.id));
  const folderCount=id=>rows.filter(c=>id==='all'||library.record(c.id)?.folderId===id).length;
  const icon='<svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><path d="M2 5a1 1 0 0 1 1-1h5l2 2h7a1 1 0 0 1 1 1v9H2Z"/></svg>';
- $('folder-list').innerHTML=[{id:'all',name:'All saved'},...library.folders].map(f=>`<div class="saved-folder-row" data-folder-id="${esc(f.id)}"><button type="button" class="saved-folder ${state.folder===f.id?'is-active':''}" data-saved-folder="${esc(f.id)}" aria-current="${state.folder===f.id?'page':'false'}">${icon}<span>${esc(f.name)}</span><span class="folder-count">${fmt(folderCount(f.id))}</span></button>${f.id!=='all'?`<button type="button" class="folder-menu-button" data-folder-menu="${esc(f.id)}" aria-label="Actions for folder ${esc(f.name)}" aria-haspopup="menu" aria-expanded="false">⋯</button>`:''}</div>`).join('');
+ const nextFolders=[{id:'all',name:'All saved'},...library.folders].map(f=>`<div class="saved-folder-row" data-folder-id="${esc(f.id)}"><button type="button" class="saved-folder ${state.folder===f.id?'is-active':''}" data-saved-folder="${esc(f.id)}" aria-current="${state.folder===f.id?'page':'false'}">${icon}<span>${esc(f.name)}</span><span class="folder-count">${fmt(folderCount(f.id))}</span></button>${f.id!=='all'?`<button type="button" class="folder-menu-button" data-folder-menu="${esc(f.id)}" aria-label="Actions for folder ${esc(f.name)}" aria-haspopup="menu" aria-expanded="false">⋯</button>`:''}</div>`).join('');
+ const host=$('folder-list'),updateFolders=()=>{host.innerHTML=nextFolders;};if(window.YCAtlasExperience?.listTransition)window.YCAtlasExperience.listTransition(host,updateFolders,node=>node.dataset.folderId);else updateFolders();
  $('saved-folder-title').textContent=state.folder==='all'?'All saved':library.folderName(state.folder);
  $('folder-management').hidden=!library.folder(state.folder);
  $('saved-sort').value=state.savedSort;
@@ -825,6 +826,7 @@ $('reel-cancel-filters').onclick=closeReelFilterPanel;$('reel-apply-filters').on
 for(const [id,field]of [['reel-tag','tag'],['reel-year','year'],['reel-group','group']])$(id).onchange=event=>{reelDraft=normalizeReelScope({...reelDraft,[field]:field==='group'?(event.target.value===''?null:Number(event.target.value)):event.target.value});renderReelDraft();};
 document.addEventListener('click',event=>{if(event.target.closest('[data-clear-reel-filters]'))applyReelScope(emptyReelScope());});
 
+window.YCAtlasNavigation=Object.freeze({companies:()=>companies,locate:locateSearchCompany});
 window.YCAtlasAssistantContext={
  company:id=>companies.find(c=>c.id===id),selected:()=>state.tab==='chat'?window.YCAtlasAssistantContext.chatCompany:state.tab==='reels'?reelsView?.current?.company:companies.find(c=>c.id===state.company),view:()=>JSON.parse(JSON.stringify({snapshot:data?.meta.fetchedAt,...state,reels:state.tab==='reels'?{feed:reelScopeActive(reelScope)?'filtered':'for-you',filters:reelScope,companyId:reelsView?.current?.company.id,paused:reelsView?.paused,speed:reelsView?.speed,autoNext:reelsView?.autoNext}:undefined})),locate:locateSearchCompany,
  async execute(name,args,cap={}){

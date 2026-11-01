@@ -2,7 +2,7 @@
 // Keep native form values/events as the source of truth; render choices in the app theme.
 (()=>{
  const widgets=new Map();let active=null,serial=0;
- function place(panel,anchor){const r=anchor.getBoundingClientRect(),height=Math.min(300,Math.max(130,panel.scrollHeight||260)),below=innerHeight-r.bottom-12,above=r.top-12,width=Math.min(Math.max(210,r.width),innerWidth-24),down=below>=height||below>=above;panel.style.width=width+'px';panel.style.left=Math.max(12,Math.min(r.left,innerWidth-width-12))+'px';panel.style.top=down?r.bottom+5+'px':'auto';panel.style.bottom=down?'auto':Math.max(12,innerHeight-r.top+5)+'px';panel.style.maxHeight=Math.max(100,Math.min(300,down?below:above))+'px';}
+ function place(panel,anchor){const r=anchor.getBoundingClientRect(),height=Math.min(300,Math.max(130,panel.scrollHeight||260)),below=innerHeight-r.bottom-12,above=r.top-12,width=Math.min(Math.max(210,r.width),innerWidth-24),down=below>=height||below>=above;panel.dataset.placement=down?'below':'above';panel.style.width=width+'px';panel.style.left=Math.max(12,Math.min(r.left,innerWidth-width-12))+'px';panel.style.top=down?r.bottom+5+'px':'auto';panel.style.bottom=down?'auto':Math.max(12,innerHeight-r.top+5)+'px';panel.style.maxHeight=Math.max(100,Math.min(300,down?below:above))+'px';}
  function closeAll(focus=false){active?.close(focus);}
  function labelFor(source){if(source.getAttribute('aria-label'))return source.getAttribute('aria-label');const label=source.labels?.[0]||source.closest('label');if(label){const copy=label.cloneNode(true);copy.querySelectorAll('select,input,button,.app-select,.app-combobox').forEach(n=>n.remove());const text=copy.textContent.trim();if(text)return text;}return source.name||source.id||'Choose an option';}
  class Choice{

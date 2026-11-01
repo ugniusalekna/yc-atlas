@@ -188,7 +188,7 @@ for(const [width,height] of [[900,600],[650,420],[360,320]]){
  click('#zoom-in');click('#zoom-in');const entryCamera=camera();click('[data-semantic-group]');click('.semantic-company');click('#zoom-in');click('#map');
  assert.equal(params().has('group'),false);assert.equal(params().get('topic'),'defense');assert.equal(params().get('batch'),'Fall 2026');assert.deepEqual(camera(),entryCamera,'Deselecting restores the exact camera before the region was opened');
  click('[data-semantic-group]');click('#zoom-in');escape();assert.deepEqual(camera(),entryCamera,'Escape restores the pre-region camera');
- click('[data-semantic-group]');click('#zoom-in');click('#all-groups');assert.deepEqual(camera(),entryCamera,'All groups restores the pre-region camera');click('#zoom-reset');assert.deepEqual(camera(),defaultCamera);assertRegionsFit();
+ assert.equal(d.querySelector('#all-groups'),null,'Region navigation uses background and Escape without a redundant button');click('[data-semantic-group]');click('#zoom-in');click('#map');assert.deepEqual(camera(),entryCamera,'Background navigation restores the pre-region camera');click('#zoom-reset');assert.deepEqual(camera(),defaultCamera);assertRegionsFit();
 }
 
 // A delayed observer notification for the size already rendered must not replace the map
