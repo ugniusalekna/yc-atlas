@@ -30,7 +30,7 @@ export function normalizeUsage(provider,raw,output=[]){
  return{reported,input,output:out,cachedInput,cacheWriteShort:Math.max(0,cacheWriteShort),cacheWriteLong,reasoning:count(raw.output_tokens_details?.reasoning_tokens),webSearches,accountingValid,cacheReported,serviceTier:raw.service_tier||'standard'};
 }
 export function estimateCost(record){
- if(record.billingMode==='chatgpt'||!record.reported||!record.accountingValid)return null;
+ if(record.billingMode==='chatgpt'||record.billingMode==='claude'||!record.reported||!record.accountingValid)return null;
  const table=record.provider==='openai'?openai:anthropic;
  const model=Object.keys(table).sort((a,b)=>b.length-a.length).find(m=>record.model===m||new RegExp('^'+m.replaceAll('.','\\.')+'-\\d{4}-?\\d{2}-?\\d{2}$').test(record.model));
  if(!model||record.provider==='openai'&&!record.cacheReported||!['standard','default','auto'].includes(record.serviceTier))return null;
