@@ -55,10 +55,10 @@ window.addEventListener('keydown',event=>{
  event.preventDefault();event.stopImmediatePropagation();if(!event.repeat)ipcRenderer.send('reel:toggle-playback');
 },{capture:true});
 
-// In "Scroll the website" mode, Up/Down keep changing companies while browsing.
+// Up/Down keep changing companies while browsing, in either Wheel mode.
 // While playing, the host already routes them; website text entry and widgets keep their arrows.
 window.addEventListener('keydown',event=>{
- if(wheelMode!=='scroll'||!event.isTrusted||event.isComposing||event.ctrlKey||event.metaKey||event.altKey||event.shiftKey)return;
+ if(!event.isTrusted||event.isComposing||event.ctrlKey||event.metaKey||event.altKey||event.shiftKey)return;
  const direction=['ArrowDown','PageDown'].includes(event.key)?'next':['ArrowUp','PageUp'].includes(event.key)?'previous':null,target=event.target;
  if(!direction||target?.isContentEditable||target?.closest?.('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="combobox"],[role="listbox"],[role="menu"],[role="slider"],[role="spinbutton"]'))return;
  event.preventDefault();event.stopImmediatePropagation();ipcRenderer.send('reel:gesture',direction);
