@@ -34,7 +34,7 @@ app.whenReady().then(async()=>{
  handle('snapshot:status',()=>updater.status);handle('snapshot:refresh',()=>{if(updater.status.state!=='running')updater.refresh();return updater.status;});
  handle('library:export',async payload=>{if(typeof payload!=='string'||payload.length>10_000_000)throw new Error('Invalid library');const {canceled,filePath}=await dialog.showSaveDialog(window,{defaultPath:'yc-atlas-library.json',filters:[{name:'YC Atlas library',extensions:['json']}]});if(canceled)return false;await writeFile(filePath,payload);return true;});
  handle('library:import',async()=>{const {canceled,filePaths}=await dialog.showOpenDialog(window,{properties:['openFile'],filters:[{name:'YC Atlas library',extensions:['json']}]});if(canceled)return null;const value=await readFile(filePaths[0],'utf8');if(value.length>10_000_000)throw new Error('Library is too large');return value;});
- ipcMain.on('reel:gesture',(event,direction)=>{if(!reels.paused&&reels.visible&&event.senderFrame===event.sender.mainFrame&&event.sender===reels.current?.view.webContents&&['next','previous'].includes(direction))send({type:'reel-navigation',direction});});
+ ipcMain.on('reel:gesture',(event,direction)=>{if(event.senderFrame===event.sender.mainFrame)reels.gesture(event.sender,direction);});
  ipcMain.on('reel:toggle-playback',event=>{if(event.senderFrame===event.sender.mainFrame)reels.togglePlayback(event.sender);});
  ipcMain.on('reel:end',(event,epoch)=>{if(event.senderFrame===event.sender.mainFrame)reels.ended(event.sender,epoch);});
  ipcMain.on('reel:manual-scroll',event=>{if(event.senderFrame===event.sender.mainFrame)reels.manualScroll(event.sender);});
