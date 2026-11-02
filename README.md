@@ -13,6 +13,8 @@ npm ci
 npm start
 ```
 
+On Linux, run `npm run install:linux-desktop` once to add YC Atlas to the app menu, so GNOME shows its icon in the dock and window switcher for both the menu entry and `npm start`. The window's app ID comes from `desktopName` in `package.json` (`yc-atlas`), which must match the launcher's file name; packaged builds get the same pairing through `linux.syncDesktopName`. Remove the launcher with `npm run install:linux-desktop -- --remove`, for example before installing a packaged `.deb`.
+
 `npm run dev` also starts Electron. For the browser companion, use `npm run web` and open http://127.0.0.1:4173. Live website rendering and automatic snapshot updates require the desktop app.
 
 ## Desktop features

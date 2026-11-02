@@ -18,7 +18,7 @@ async function buildSemantics(directory,progress){
 async function reloadDataset(){dataset=JSON.parse(await readFile(path.join(updater.activeData,'companies.json'),'utf8'));}
 function handle(channel,fn){ipcMain.handle(channel,(event,...args)=>{if(!trustedFrame(event,window))throw new Error('Untrusted request');return fn(...args);});}
 async function createWindow(){
- window=new BrowserWindow({width:1460,height:960,minWidth:960,minHeight:680,title:'YC Atlas',backgroundColor:'#f5f5f3',...(process.platform==='darwin'?{titleBarStyle:'hiddenInset',trafficLightPosition:{x:16,y:19}}:{}),webPreferences:{preload:path.join(here,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
+ window=new BrowserWindow({width:1460,height:960,minWidth:960,minHeight:680,title:'YC Atlas',backgroundColor:'#f5f5f3',...(process.platform==='darwin'?{titleBarStyle:'hiddenInset',trafficLightPosition:{x:16,y:19}}:{}),...(process.platform==='linux'?{icon:path.join(root,'assets/icon.png')}:{}),webPreferences:{preload:path.join(here,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
  if(process.platform==='darwin'){const icon=nativeImage.createFromPath(path.join(root,'assets/icon.png'));if(!icon.isEmpty())app.dock.setIcon(icon);}
  reels=new ReelsController(window,{prepareView:(contents)=>assistant.selectionMenu(contents,()=>reels.slots.find(s=>s.view.webContents===contents)?.companyId),send,openExternal:url=>shell.openExternal(url),lookup:id=>dataset.companies.find(c=>c.id===id)});
  window.webContents.setWindowOpenHandler(({url})=>{if(webURL(url))shell.openExternal(url);return{action:'deny'};});
