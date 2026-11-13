@@ -327,6 +327,7 @@
 .reel-options label { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-block: 5px; }
 .reel-options .reel-auto-next { justify-content: flex-start; color: var(--color-ink); }
 .reel-options small { display: block; color: var(--color-muted); line-height: 1.5; margin-bottom: 10px; }
+.reel-options small:last-child { margin-bottom: 0; }
 .reel-options .reel-navigation, .reel-history { display: flex; border: 0; border-top: 1px solid var(--color-rule); margin-top: 10px; padding: 10px 0 0; justify-content: space-between; }
 .reel-options button:disabled { opacity: .4; }
 

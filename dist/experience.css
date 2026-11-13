@@ -161,3 +161,42 @@ button svg, summary svg, a.reel-icon-action svg { transform-box: fill-box; trans
 #usage-empty { margin-top: 12px; }
 .usage-loading-grid { grid-row: 2; opacity: .6; }
 @media (max-width:650px) { .usage-activity { padding: 12px; } .usage-activity-heading { align-items: flex-start; flex-direction: column; } }
+
+/* Research briefs */
+.brief-button { display: flex; align-items: center; gap: var(--space-xs); width: 100%; min-height: 36px; margin-block: calc(-1 * var(--space-xs)) var(--space-md); padding: 6px 10px; border: 1px solid var(--color-rule-2); border-radius: 9px; background: var(--color-cotton); color: var(--color-ink-2); font-size: 12px; text-align: left; cursor: pointer; }
+.brief-button:hover { background: var(--color-paper-2); }
+.brief-button svg { flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; }
+.brief-button-label { flex: 1; font-weight: 550; }
+.brief-button-state { font-size: 10.5px; color: var(--color-muted); white-space: nowrap; }
+.brief-button[data-state="ready"] { border-color: var(--color-accent); }
+.brief-button[data-state="ready"] .brief-button-state { color: var(--color-accent-2); }
+.brief-button[data-state="loading"] .brief-button-state, .brief-button[data-state="queued"] .brief-button-state { animation: brief-pulse 1.4s ease-in-out infinite; }
+.inspector .brief-button { margin-top: 0; }
+#brief-dialog { width: min(760px, calc(100vw - 48px)); max-width: none; max-height: calc(100dvh - 48px); padding: 22px 26px 16px; display: none; flex-direction: column; gap: 12px; background: var(--color-cotton); color: var(--color-ink); }
+#brief-dialog[open] { display: flex; }
+.brief-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.brief-kicker { margin: 0; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--color-muted); }
+.brief-heading h2 { margin: 2px 0 3px; font-family: var(--font-desktop, var(--font-display)); font-size: 22px; font-weight: 600; letter-spacing: -.4px; }
+#brief-subtitle { margin: 0; font-size: 12px; color: var(--color-muted); }
+#brief-subtitle a { color: inherit; }
+.brief-body { overflow-y: auto; min-height: 120px; font-size: 13px; line-height: 1.5; }
+.brief-body h3 { margin: 12px 0 3px; font-size: 13px; font-weight: 650; color: var(--color-ink); }
+.brief-body h3:first-child { margin-top: 0; }
+.brief-body ul { margin: 0; padding-left: 18px; }
+.brief-body li { margin: 2px 0; }
+.brief-body p { margin: 4px 0; }
+.brief-body a { color: var(--color-accent-2); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.brief-sources { margin-top: 10px !important; padding-top: 8px; border-top: 1px solid var(--color-rule); font-size: 11.5px; color: var(--color-muted); }
+.brief-tag { display: inline-block; margin-right: 4px; padding: 0 5px; border-radius: 4px; background: var(--color-paper-3); color: var(--color-muted); font-size: 10px; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; vertical-align: 1px; }
+.brief-progress { display: flex; gap: 14px; align-items: flex-start; padding: 18px 0; }
+.brief-progress p, .brief-empty p, .brief-problem p { color: var(--color-muted); max-width: 56ch; }
+.brief-spinner { flex: none; width: 18px; height: 18px; margin-top: 2px; border: 2px solid var(--color-rule-2); border-top-color: var(--color-accent-2); border-radius: 50%; animation: brief-spin .9s linear infinite; }
+.brief-empty, .brief-problem { padding: 12px 0; }
+.brief-empty .primary-button { min-height: 34px; padding: 6px 14px; border-radius: 8px; background: var(--color-ink); color: var(--color-cotton); font-size: 12.5px; font-weight: 550; }
+.brief-problem p { color: var(--color-error); }
+.brief-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid var(--color-rule); }
+.brief-footer small { font-size: 11px; color: var(--color-muted); }
+.brief-footer .quiet-button { flex: none; }
+@keyframes brief-spin { to { transform: rotate(360deg); } }
+@keyframes brief-pulse { 50% { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .brief-spinner, .brief-button-state { animation: none !important; } }

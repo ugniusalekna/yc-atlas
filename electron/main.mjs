@@ -6,10 +6,11 @@ import {webURL,trustedFrame,assetPath} from './security.mjs';
 import {installAssistant} from './assistant.mjs';
 import {ReelsController} from './reels.mjs';
 import {SnapshotUpdater} from './refresh.mjs';
+import {BriefService} from './briefs.mjs';
 const here=path.dirname(fileURLToPath(import.meta.url)),root=path.resolve(here,'..'),dist=path.join(root,'dist');
 protocol.registerSchemesAsPrivileged([{scheme:'atlas',privileges:{standard:true,secure:true,supportFetchAPI:true,corsEnabled:true}}]);
 app.setName('YC Atlas');
-let window,reels,updater,assistant;let dataset;
+let window,reels,updater,assistant,briefs;let dataset;
 const send=message=>{if(window&&!window.isDestroyed()){if(['navigate','search'].includes(message.type))window.webContents.focus();window.webContents.send('atlas:event',message);}};
 const contentTypes={'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2'};
 async function buildSemantics(directory,progress){
@@ -18,13 +19,13 @@ async function buildSemantics(directory,progress){
 async function reloadDataset(){dataset=JSON.parse(await readFile(path.join(updater.activeData,'companies.json'),'utf8'));}
 function handle(channel,fn){ipcMain.handle(channel,(event,...args)=>{if(!trustedFrame(event,window))throw new Error('Untrusted request');return fn(...args);});}
 async function createWindow(){
- window=new BrowserWindow({width:1460,height:960,minWidth:960,minHeight:680,title:'YC Atlas',backgroundColor:'#f5f5f3',...(process.platform==='darwin'?{titleBarStyle:'hiddenInset',trafficLightPosition:{x:16,y:19}}:{}),webPreferences:{preload:path.join(here,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
+ window=new BrowserWindow({width:1460,height:960,minWidth:960,minHeight:680,title:'YC Atlas',backgroundColor:'#f5f5f3',...(process.platform==='darwin'?{titleBarStyle:'hiddenInset',trafficLightPosition:{x:16,y:19}}:{}),...(process.platform==='linux'?{icon:path.join(root,'assets/icon.png')}:{}),webPreferences:{preload:path.join(here,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});
  if(process.platform==='darwin'){const icon=nativeImage.createFromPath(path.join(root,'assets/icon.png'));if(!icon.isEmpty())app.dock.setIcon(icon);}
  reels=new ReelsController(window,{prepareView:(contents)=>assistant.selectionMenu(contents,()=>reels.slots.find(s=>s.view.webContents===contents)?.companyId),send,openExternal:url=>shell.openExternal(url),lookup:id=>dataset.companies.find(c=>c.id===id)});
  window.webContents.setWindowOpenHandler(({url})=>{if(webURL(url))shell.openExternal(url);return{action:'deny'};});
  window.webContents.on('will-navigate',(event,url)=>{if(!url.startsWith('atlas://app/')){event.preventDefault();if(webURL(url))shell.openExternal(url);}});
  assistant.selectionMenu(window.webContents);
- window.on('closed',()=>{assistant.cancel();reels?.destroy();window=null;});
+ window.on('closed',()=>{briefs?.close();assistant.cancel();reels?.destroy();window=null;});
  await window.loadURL('atlas://app/');
 }
 app.whenReady().then(async()=>{
@@ -34,13 +35,15 @@ app.whenReady().then(async()=>{
  handle('snapshot:status',()=>updater.status);handle('snapshot:refresh',()=>{if(updater.status.state!=='running')updater.refresh();return updater.status;});
  handle('library:export',async payload=>{if(typeof payload!=='string'||payload.length>10_000_000)throw new Error('Invalid library');const {canceled,filePath}=await dialog.showSaveDialog(window,{defaultPath:'yc-atlas-library.json',filters:[{name:'YC Atlas library',extensions:['json']}]});if(canceled)return false;await writeFile(filePath,payload);return true;});
  handle('library:import',async()=>{const {canceled,filePaths}=await dialog.showOpenDialog(window,{properties:['openFile'],filters:[{name:'YC Atlas library',extensions:['json']}]});if(canceled)return null;const value=await readFile(filePaths[0],'utf8');if(value.length>10_000_000)throw new Error('Library is too large');return value;});
- ipcMain.on('reel:gesture',(event,direction)=>{if(!reels.paused&&reels.visible&&event.senderFrame===event.sender.mainFrame&&event.sender===reels.current?.view.webContents&&['next','previous'].includes(direction))send({type:'reel-navigation',direction});});
+ ipcMain.on('reel:gesture',(event,direction)=>{if(event.senderFrame===event.sender.mainFrame)reels.gesture(event.sender,direction);});
  ipcMain.on('reel:toggle-playback',event=>{if(event.senderFrame===event.sender.mainFrame)reels.togglePlayback(event.sender);});
  ipcMain.on('reel:end',(event,epoch)=>{if(event.senderFrame===event.sender.mainFrame)reels.ended(event.sender,epoch);});
  ipcMain.on('reel:manual-scroll',event=>{if(event.senderFrame===event.sender.mainFrame)reels.manualScroll(event.sender);});
  const navigate=tab=>send({type:'navigate',tab});
  Menu.setApplicationMenu(Menu.buildFromTemplate([...(process.platform==='darwin'?[{label:'YC Atlas',submenu:[{role:'about'},{type:'separator'},{role:'services'},{type:'separator'},{role:'hide'},{role:'hideOthers'},{type:'separator'},{role:'quit'}]}]:[]),{label:'File',submenu:[{label:'New chat',accelerator:'CmdOrCtrl+N',click:()=>send({type:'new-chat'})},{type:'separator'},{label:'Update snapshot',click:()=>send({type:'update-snapshot'})},{label:'Import library…',click:()=>send({type:'import-library'})},{label:'Export library…',click:()=>send({type:'export-library'})},{type:'separator'},process.platform==='darwin'?{role:'close'}:{role:'quit'}]},{role:'editMenu'},{label:'View',submenu:[{label:'Explore',accelerator:'CmdOrCtrl+1',click:()=>navigate('explore')},{label:'Reels',accelerator:'CmdOrCtrl+2',click:()=>navigate('reels')},{label:'Summary',accelerator:'CmdOrCtrl+3',click:()=>navigate('summary')},{label:'Saved',accelerator:'CmdOrCtrl+4',click:()=>navigate('saved')},{label:'Liked',accelerator:'CmdOrCtrl+5',click:()=>navigate('liked')},{label:'Chat',accelerator:'CmdOrCtrl+6',click:()=>navigate('chat')},{type:'separator'},{label:'Search Atlas…',accelerator:'CmdOrCtrl+K',click:()=>send({type:'command-palette'})},{label:'Search',accelerator:'CmdOrCtrl+F',click:()=>send({type:'search'})},{role:'togglefullscreen'},...(!app.isPackaged?[{role:'toggleDevTools'}]:[])]},{role:'windowMenu'}]));
  assistant=installAssistant({handle,ipcMain,app,getWindow:()=>window,trustedFrame,send,getDataset:()=>dataset});
+ briefs=new BriefService({directory:app.getPath('userData'),lookup:id=>dataset.companies.find(c=>c.id===id),run:(prompt,signal)=>assistant.brief(prompt,signal),emit:send});
+ handle('brief:get',id=>briefs.get(id));handle('brief:statuses',ids=>briefs.statuses(ids));handle('brief:request',options=>briefs.request(options?.companyId,{refresh:options?.refresh===true}));handle('brief:preload',ids=>briefs.preload(ids));
  await createWindow();app.on('activate',()=>{if(!window)createWindow();});
 }).catch(error=>{dialog.showErrorBox('YC Atlas could not start',error.stack||error.message);app.quit();});
 app.on('window-all-closed',()=>{if(process.platform!=='darwin')app.quit();});

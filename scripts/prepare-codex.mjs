@@ -7,7 +7,7 @@ import {codexLocation} from '../electron/codex-runtime.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const {binary}=codexLocation(root);
-await access(binary,constants.X_OK);
+await access(binary,constants.X_OK).catch(()=>{throw new Error('The Codex runtime is not installed. Run npm ci.');});
 const pkg=JSON.parse(await readFile(path.join(root,'package.json'),'utf8'));
 const version=spawnSync(binary,['--version'],{encoding:'utf8'});
 if(version.status!==0||version.stdout.trim()!==`codex-cli ${pkg.dependencies['@openai/codex']}`)throw new Error('Installed Codex version does not match the pinned application runtime. Run npm ci.');
