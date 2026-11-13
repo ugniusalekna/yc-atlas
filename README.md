@@ -64,6 +64,12 @@ Automated checks cover fragmented Codex transport, secret/environment isolation,
 
 Implementation references: [Codex App Server](https://learn.chatgpt.com/docs/app-server), [Codex configuration](https://learn.chatgpt.com/docs/config-file/config-reference), and [Sign in with ChatGPT with Codex App Server](https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server).
 
+## Research briefs
+
+**Research brief** sits under the company actions in Reels and in Explore/Saved/Liked company details. It opens a one-screen brief written by the Chat engine (your ChatGPT/API-key Codex setup or Claude account) with web search only: no Atlas tools, private library data, notes or workspace commands. The brief breaks the company into plain, concrete parts, avoiding marketing language, in five sections: what they do and their likely tech stack; founders and founding story; money (revenue, profitability, funding and investors); how they get customers, including first-customer stories; and anything notable (competitors, red flags, recent news). Sourced claims link to their source, inferred claims carry an **inferred** label, and the brief ends with key source links.
+
+Briefs cost model credits, so they run only when needed. In Reels, Atlas preloads briefs for the next two companies the feed will show, and those are fixed in advance so preloaded work isn't wasted. Unstarted preloads are dropped when you move on, and at most two briefs research at once. Turn this off with **⋯ → Preload briefs**. Everywhere else, a brief is researched only when you open it. Finished briefs are cached in `company-briefs.json` under app userData and reused until you choose **Research again**. Brief usage appears in the usage heatmap as background tokens. Reasoning effort above medium is lowered to medium for briefs.
+
 ## Bring your saved companies into desktop
 
 Browser storage and desktop storage are separate. In the updated browser companion, click **Export library**. In the desktop app, use **File → Import library** or the footer Import library button. The JSON backup includes saved companies, folders, notes, original save dates, and likes. Import merges with the current library rather than replacing existing saved records. The browser companion retains your earlier ID-only bookmarks through migration. CSV remains available for exporting a selected folder's company data.

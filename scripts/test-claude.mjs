@@ -4,6 +4,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {z} from 'zod';
 import {ClaudeRuntime,titleInstructions} from '../electron/claude-runtime.mjs';
+import {briefInstructions} from '../electron/briefs.mjs';
 // Drives ClaudeRuntime against a scripted fake of the Agent SDK; no Claude Code process, account or network is used.
 const directory=await mkdtemp(path.join(tmpdir(),'atlas-claude-test-'));process.env.ANTHROPIC_API_KEY='sk-ant-should-not-leak';
 const calls=[],events=[],executed=[],approvals=[],usage=[];let script,controls=0;
@@ -43,6 +44,11 @@ try{
  script=async function*(){yield result({result:'Climate startups'});};
  reply=await claude.run({cfg:{...cfg,effort:'low',capabilities:{}},chatId:'title-x',history:[{role:'user',content:'Name this'}],kind:'title'});const title=calls.at(-1).options;
  assert.equal(reply.text,'Climate startups');assert.deepEqual(title.tools,[]);assert.deepEqual(title.mcpServers,{});assert.equal(title.persistSession,false);assert.equal(title.includePartialMessages,false);assert.equal(title.systemPrompt,titleInstructions);assert.equal(title.effort,'low');
+ // Company briefs use only web tools, deny everything else and keep no session.
+ script=async function*(){yield result({result:'**What they do**'});};
+ reply=await claude.run({cfg:{...cfg,effort:'medium',capabilities:{web:true}},chatId:'company-briefs',history:[{role:'user',content:'Brief Acme'}],kind:'brief'});const brief=calls.at(-1).options;
+ assert.equal(reply.text,'**What they do**');assert.deepEqual(brief.tools,['WebSearch','WebFetch']);assert.deepEqual(brief.mcpServers,{});assert.equal(brief.persistSession,false);assert.equal(brief.maxTurns,24);assert.equal(brief.systemPrompt,briefInstructions);
+ assert.deepEqual(await brief.canUseTool('WebSearch',{query:'Acme'},{signal:new AbortController().signal}),{behavior:'allow',updatedInput:{query:'Acme'}});assert.equal((await brief.canUseTool('Bash',{command:'ls'},{signal:new AbortController().signal})).behavior,'deny');
  // Stop, account and plan-limit failures produce clear errors.
  script=async function*(options){yield stream('content_block_start',{content_block:{type:'text'}});await new Promise((_,reject)=>options.abortController.signal.addEventListener('abort',()=>reject(new Error('aborted'))));};
  const controller=new AbortController(),stopped=claude.run({cfg,chatId:'chat-2',history:[{role:'user',content:'Long task'}],signal:controller.signal});setTimeout(()=>controller.abort(),20);await assert.rejects(stopped,/Reply stopped/);
