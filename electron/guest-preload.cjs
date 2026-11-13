@@ -63,3 +63,9 @@ window.addEventListener('keydown',event=>{
  if(!direction||target?.isContentEditable||target?.closest?.('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="textbox"],[role="combobox"],[role="listbox"],[role="menu"],[role="slider"],[role="spinbutton"]'))return;
  event.preventDefault();event.stopImmediatePropagation();ipcRenderer.send('reel:gesture',direction);
 },{capture:true});
+
+// Clicking a playing website means "let me use this page": switch to Browse so links open and build Back/Forward history.
+window.addEventListener('pointerdown',event=>{
+ if(!event.isTrusted||event.button!==0||scrollOptions.paused)return;
+ const state=window.__atlasAutoScroll;if(state)state.paused=true;scrollOptions={...scrollOptions,paused:true};window.__atlasOnManualScroll();
+},{capture:true,passive:true});

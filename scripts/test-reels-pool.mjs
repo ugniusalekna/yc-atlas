@@ -5,7 +5,7 @@ import {EventEmitter} from 'node:events';
 import {ReelsPool} from '../electron/reels-core.mjs';
 class Contents extends EventEmitter{
  constructor(){super();this.url='';this.loads=[];this.controls=[];this.destroyed=false;this.captureFails=false;}
- setAudioMuted(){}setWindowOpenHandler(handler){this.open=handler;}stop(){}
+ setAudioMuted(value){this.muted=value;}isFocused(){return this.focused===true;}focus(){this.focused=true;}setWindowOpenHandler(handler){this.open=handler;}stop(){}
  loadURL(url){this.url=url;this.loads.push(url);return new Promise(()=>{});}
  getURL(){return this.url;}isDestroyed(){return this.destroyed;}
  send(channel,message){this.controls.push({channel,message});}
@@ -33,7 +33,11 @@ first.view.webContents.emit('before-input-event',inputEvent,{type:'keyDown',key:
 let blocked=false;first.view.webContents.emit('will-navigate',{preventDefault(){blocked=true;}},'https://company1.example/product');assert.equal(blocked,false);
 first.view.webContents.emit('will-navigate',{preventDefault(){blocked=true;}},'file:///private/data');assert.equal(blocked,true);
 let epoch=pool.playbackEpoch;assert.equal(pool.ended(first.view.webContents,epoch),false,'Paused pages cannot auto-advance');
-first.view.webContents.emit('before-input-event',inputEvent,{type:'keyDown',key:'Escape'});assert.equal(pool.paused,false);epoch=pool.playbackEpoch;blocked=false;first.view.webContents.emit('will-navigate',{preventDefault(){blocked=true;}},'https://company1.example/product');assert.equal(blocked,true);
+first.view.webContents.emit('before-input-event',inputEvent,{type:'keyDown',key:'Escape'});assert.equal(pool.paused,false);epoch=pool.playbackEpoch;blocked=false;first.view.webContents.emit('will-navigate',{preventDefault(){blocked=true;}},'https://company1.example/product');assert.equal(blocked,false,'Same-site navigations (redirects, bot checks, links) proceed while playing');
+first.view.webContents.emit('will-navigate',{preventDefault(){blocked=true;}},'https://ads.example/landing');assert.equal(blocked,false,'A page still settling after its first load may redirect off-site');
+first.settleUntil=0;first.view.webContents.emit('will-navigate',{preventDefault(){blocked=true;}},'https://ads.example/landing');assert.equal(blocked,true,'A settled playing page cannot be carried off-site');
+blocked=false;first.view.webContents.emit('will-navigate',{preventDefault(){blocked=true;}},'https://www.company1.example/en');assert.equal(blocked,false,'www and subdomains count as the same site');
+clearedHistory=0;first.view.webContents.emit('did-navigate');assert.equal(clearedHistory,1,'Redirects while playing do not leave Back pointing at the redirect page');
 assert.equal(pool.ended(first.view.webContents,epoch-1),false);assert.equal(pool.ended(first.view.webContents,epoch),true);assert.equal(events.at(-1).type,'reel-ended');pool.overlay=true;pool.applyVisibility();assert.equal(first.view.webContents.controls.at(-1).message.paused,true);assert.equal(pool.ended(first.view.webContents,epoch),false);pool.overlay=false;pool.applyVisibility();assert.equal(first.view.webContents.controls.at(-1).message.paused,false);await pool.control({autoNext:false});
 // Scroll wheel setting: by default only playing pages change company from the website; "Scroll the website" keeps Up/Down for companies while browsing.
 const wc1=first.view.webContents;assert.equal(pool.wheel,'navigate');assert.equal(wc1.controls.at(-1).message.wheel,'navigate');
@@ -43,13 +47,16 @@ assert.equal(pool.gesture(wc1,'previous'),true,'Up/Down from a browsed page stil
 pool.overlay=true;assert.equal(pool.gesture(wc1,'next'),false,'Menus block website gestures');pool.overlay=false;
 navigations=events.filter(e=>e.type==='reel-navigation').length;wc1.emit('before-input-event',inputEvent,{type:'keyDown',key:'ArrowDown'});assert.equal(events.filter(e=>e.type==='reel-navigation').length,navigations,'Browsed pages route arrows in the page so text entry keeps them');
 await pool.control({paused:false,wheel:'navigate'});
-pool.preload([2]);const second=pool.slots.find(slot=>slot.companyId===2);second.view.webContents.navigationHistory={clear:()=>clearedHistory++};second.view.webContents.emit('dom-ready');assert.equal(clearedHistory,1);assert.equal(second.view.visible,false);assert.equal(pool.current,first);assert.equal(created,2);
+clearedHistory=0;pool.preload([2]);const second=pool.slots.find(slot=>slot.companyId===2);second.view.webContents.navigationHistory={clear:()=>clearedHistory++};second.view.webContents.emit('dom-ready');assert.equal(clearedHistory,1);assert.equal(second.view.visible,false);assert.equal(pool.current,first);assert.equal(created,2);
 await pool.control({paused:true});
 await pool.show({companyId:2,bounds,animate:true,direction:'next'});
 assert.equal(pool.paused,false,'Moving to a different reel must resume playback');
 assert.equal(created,2);assert.equal(second.view.webContents.loads.length,1,'Activating the preloaded next company must not reload it');
 const transition=events.findLast(event=>event.type==='reel-transition');assert.ok(transition);assert.equal(second.view.visible,false,'Live native view stays hidden until its slide animation finishes');
 pool.finish({companyId:2,transitionId:-1});assert.equal(second.view.visible,false);pool.finish(transition);assert.equal(second.view.visible,true);assert.equal(first.view.visible,false);
+assert.equal(second.view.webContents.muted,false,'The website on screen plays sound');assert.equal(first.view.webContents.muted,true,'Hidden websites stay muted');
+first.view.webContents.focused=true;navigations=events.filter(e=>e.type==='reel-navigation').length;prevented=0;first.view.webContents.emit('before-input-event',inputEvent,{type:'keyDown',key:'ArrowDown'});
+assert.equal(prevented,1);assert.equal(events.filter(e=>e.type==='reel-navigation').length,navigations+1,'Arrows still change company when a hidden website kept focus');assert.equal(second.view.webContents.focused,true,'Focus moves to the website on screen');first.view.webContents.focused=false;
 assert.equal(pool.manualScroll(first.view.webContents),false,'A background website cannot pause the current reel');assert.equal(pool.paused,false);
 assert.equal(pool.manualScroll(second.view.webContents),true);assert.equal(pool.paused,true);assert.equal(events.at(-1).paused,true);assert.equal(second.view.webContents.controls.at(-1).message.paused,true);
 await pool.show({companyId:2,bounds});assert.equal(pool.paused,true,'Rerendering the same reel must keep its paused state');
@@ -88,6 +95,11 @@ console.log('PASS: Pause-to-browse wheel/keyboard routing, safe in-place navigat
 const beforeKeys=gestures.length;let keyPrevented=0;const key=extra=>({isTrusted:true,code:'Space',key:' ',target:{closest:()=>null},preventDefault(){keyPrevented++;},stopImmediatePropagation(){},...extra});
 guestWindow.emit('keydown',key());assert.deepEqual(gestures.at(-1),['reel:toggle-playback']);assert.equal(keyPrevented,1);
 for(const extra of [{repeat:true},{ctrlKey:true},{metaKey:true},{isComposing:true},{isTrusted:false},{target:{closest:()=>({})}},{target:{isContentEditable:true}}])guestWindow.emit('keydown',key(extra));assert.equal(gestures.length,beforeKeys+1);assert.equal(keyPrevented,2);
+// A click on a playing website switches to Browse so its links open; paused pages and other buttons are left alone.
+ipc.emit('atlas:scroll-control',{}, {speed:100,paused:false,epoch:7});let beforeClick=gestures.length;
+guestWindow.emit('pointerdown',{isTrusted:true,button:2});guestWindow.emit('pointerdown',{isTrusted:false,button:0});assert.equal(gestures.length,beforeClick);
+guestWindow.emit('pointerdown',{isTrusted:true,button:0});assert.deepEqual(gestures.at(-1),['reel:manual-scroll']);assert.equal(context.window.__atlasAutoScroll.paused,true);
+guestWindow.emit('pointerdown',{isTrusted:true,button:0});assert.equal(gestures.length,beforeClick+1,'Clicks while browsing do not resend');
 console.log('PASS: website Space resumes/pauses through the trusted host and ignores repeats, modifiers, composing and editable targets.');
 // "Scroll the website": the page owns the wheel, the first gesture pauses into Browse, and Up/Down still change company outside text entry.
 scrolling.scrollHeight=2000;scrolling.scrollTop=0;ipc.emit('atlas:scroll-control',{}, {speed:100,paused:false,autoNext:false,wheel:'scroll',epoch:9,activate:true});assert.equal(context.window.__atlasAutoScroll.wheel,undefined,'The wheel setting stays out of auto-scroll state');
